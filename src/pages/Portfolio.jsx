@@ -132,6 +132,25 @@ const Reveal = ({ children, className }) => (
   </motion.div>
 );
 
+// Groups a flat skills array into { category: [skills] } while preserving
+// first-seen category order - used by the premium skills grid.
+const groupSkillsByCategory = (skills) => {
+  const groups = {};
+  skills.forEach((s) => {
+    const cat = s.category || "General";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(s);
+  });
+  return groups;
+};
+
+const isVideoFile = (url = "") => /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
+const toEmbedUrl = (url = "") => {
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  return url;
+};
+
 // slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
 // and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
@@ -142,6 +161,8 @@ const Portfolio = ({ slugProp }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState("hero");
+  const [lightboxProject, setLightboxProject] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // --- Typewriter effect state (hero section) ---
   const [roleIndex, setRoleIndex] = useState(0);
@@ -262,6 +283,14 @@ const Portfolio = ({ slugProp }) => {
   const topSkills = portfolio.skills?.slice(0, 6) || [];
   const highlightTeaser = portfolio.about?.highlights?.slice(0, 3) || [];
   const marqueeItems = portfolio.techStack?.length ? portfolio.techStack : topSkills.map((s) => s.name);
+  const services = portfolio.hero?.services || [];
+  const whyChooseMe = portfolio.hero?.whyChooseMe || [];
+  const skillGroups = groupSkillsByCategory(portfolio.skills || []);
+
+  const openLightbox = (project, index = 0) => {
+    setLightboxProject(project);
+    setLightboxIndex(index);
+  };
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col">
@@ -296,6 +325,17 @@ const Portfolio = ({ slugProp }) => {
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
+            {portfolio.hero.githubLink && (
+              <a
+                href={portfolio.hero.githubLink}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition"
+                aria-label="GitHub"
+              >
+                {SOCIAL_ICONS.github}
+              </a>
+            )}
             {portfolio.hero.resumeLink && (
               <a
                 href={portfolio.hero.resumeLink}
@@ -306,17 +346,23 @@ const Portfolio = ({ slugProp }) => {
                 Resume ↗
               </a>
             )}
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              className="bg-surface border border-border text-text text-sm rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary"
-            >
+
+            {/* Premium theme switcher - swatch dots instead of a plain <select> */}
+            <div className="flex items-center gap-1 bg-surface border border-border rounded-full px-1.5 py-1">
               {THEMES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
+                <button
+                  key={t.id}
+                  title={t.label}
+                  onClick={() => setTheme(t.id)}
+                  aria-label={`Switch to ${t.label} theme`}
+                  className={`w-4 h-4 rounded-full border transition ${
+                    theme === t.id ? "border-primary scale-125" : "border-transparent hover:scale-110"
+                  }`}
+                  style={{ background: t.swatch || "var(--color-primary)" }}
+                />
               ))}
-            </select>
+            </div>
+
             <button
               onClick={() => scrollToSection("contact")}
               className="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition"
@@ -444,6 +490,17 @@ const Portfolio = ({ slugProp }) => {
                 >
                   Hire Me
                 </button>
+                {portfolio.hero.githubLink && (
+                  <a
+                    href={portfolio.hero.githubLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
+                  >
+                    {SOCIAL_ICONS.github}
+                    GitHub
+                  </a>
+                )}
                 {portfolio.hero.resumeLink && (
                   <a
                     href={portfolio.hero.resumeLink}
@@ -560,6 +617,46 @@ const Portfolio = ({ slugProp }) => {
             </div>
           )}
 
+          {/* Services - folded into hero, no separate nav section */}
+          {services.length > 0 && (
+            <div className="mt-16 pt-16 border-t border-border">
+              <p className="mono text-xs text-primary uppercase tracking-widest mb-2">What I Do</p>
+              <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8">Services</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {services.map((s, i) => (
+                  <Reveal key={i} className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/50 transition">
+                    <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-display font-semibold mb-4">
+                      {String(i + 1).padStart(2, "0")}
+                    </div>
+                    <h3 className="font-display font-semibold mb-2">{s.title}</h3>
+                    <p className="text-textMuted text-sm leading-relaxed">{s.description}</p>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Why Choose Me - folded into hero, no separate nav section */}
+          {whyChooseMe.length > 0 && (
+            <div className="mt-16 pt-16 border-t border-border">
+              <p className="mono text-xs text-primary uppercase tracking-widest mb-2">The Difference</p>
+              <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8">Why Choose Me</h2>
+              <div className="grid sm:grid-cols-2 gap-5">
+                {whyChooseMe.map((w, i) => (
+                  <Reveal key={i} className="flex gap-4">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 mt-0.5 text-primary shrink-0">
+                      <path d="m5 13 4 4L19 7" />
+                    </svg>
+                    <div>
+                      <h3 className="font-semibold mb-1">{w.title}</h3>
+                      <p className="text-textMuted text-sm leading-relaxed">{w.description}</p>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-center mt-14">
             <motion.button
               onClick={() => scrollToSection("about")}
@@ -576,139 +673,312 @@ const Portfolio = ({ slugProp }) => {
           </div>
         </section>
 
-        {/* ---------- ABOUT ---------- */}
+        {/* ---------- ABOUT (premium, longer) ---------- */}
         <section id="about" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold mb-6">About</h2>
-            <p className="text-textMuted leading-relaxed whitespace-pre-line">
-              {portfolio.about.bio || "No bio added yet."}
-            </p>
-            {portfolio.about.highlights?.length > 0 && (
-              <ul className="mt-6 space-y-2">
-                {portfolio.about.highlights.map((h, i) => (
-                  <li key={i} className="flex gap-2 text-text">
-                    <span className="text-primary">→</span> {h}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get To Know Me</p>
+            <h2 className="font-display text-3xl font-semibold mb-10">About</h2>
           </Reveal>
+
+          <div className="grid md:grid-cols-5 gap-12">
+            <div className="md:col-span-3">
+              <Reveal>
+                <p className="text-textMuted leading-relaxed whitespace-pre-line text-base md:text-lg">
+                  {portfolio.about.bio || "No bio added yet."}
+                </p>
+              </Reveal>
+
+              {portfolio.about.approach && (
+                <Reveal className="mt-10">
+                  <h3 className="font-display text-lg font-semibold mb-3">My Approach</h3>
+                  <p className="text-textMuted leading-relaxed whitespace-pre-line">{portfolio.about.approach}</p>
+                </Reveal>
+              )}
+
+              {portfolio.about.highlights?.length > 0 && (
+                <Reveal className="mt-10">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {portfolio.about.highlights.map((h, i) => (
+                      <div key={i} className="flex gap-2 items-start bg-surface border border-border rounded-xl px-4 py-3">
+                        <span className="text-primary mt-0.5">→</span>
+                        <span className="text-sm text-text">{h}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Reveal>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <Reveal className="sticky top-28">
+                {portfolio.about.image ? (
+                  <img src={portfolio.about.image} alt={owner.name} className="w-full rounded-2xl border border-border object-cover aspect-[4/5]" />
+                ) : (
+                  <div className="w-full aspect-[4/5] rounded-2xl border border-border bg-surface flex items-center justify-center">
+                    <span className="font-display text-5xl font-semibold text-primary">{initials}</span>
+                  </div>
+                )}
+                {portfolio.hero.stats?.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    {portfolio.hero.stats.slice(0, 4).map((s, i) => (
+                      <div key={i} className="bg-surface border border-border rounded-xl p-3 text-center">
+                        <p className="font-display text-lg font-semibold text-primary">{s.value}</p>
+                        <p className="text-[10px] text-textMuted mono uppercase tracking-wide">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Reveal>
+            </div>
+          </div>
         </section>
 
-        {/* ---------- SKILLS ---------- */}
+        {/* ---------- SKILLS (premium grouped UI) ---------- */}
         <section id="skills" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold mb-6">Skills</h2>
-            {portfolio.skills.length === 0 && (
-              <p className="text-textMuted">No skills added yet.</p>
-            )}
-            <div className="grid sm:grid-cols-2 gap-4">
-              {portfolio.skills.map((s, i) => (
-                <div key={i} className="bg-surface border border-border rounded-lg p-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>{s.name}</span>
-                    <span className="text-textMuted mono">{s.level}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${s.level}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">What I Work With</p>
+            <h2 className="font-display text-3xl font-semibold mb-10">Skills</h2>
           </Reveal>
+          {portfolio.skills.length === 0 && (
+            <p className="text-textMuted">No skills added yet.</p>
+          )}
+          <div className="grid md:grid-cols-2 gap-8">
+            {Object.entries(skillGroups).map(([category, items], gi) => (
+              <Reveal key={category} className="bg-surface border border-border rounded-2xl p-6">
+                <h3 className="mono text-xs text-primary uppercase tracking-widest mb-5">{category}</h3>
+                <div className="space-y-5">
+                  {items.map((s, i) => (
+                    <div key={i}>
+                      <div className="flex justify-between items-baseline mb-1.5">
+                        <span className="text-sm font-medium">{s.name}</span>
+                        <span className="text-textMuted mono text-xs">{s.level}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-surfaceAlt overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          whileInView={{ width: `${s.level}%` }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.8, delay: 0.1 + i * 0.06, ease: "easeOut" }}
+                          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </section>
 
-        {/* ---------- PROJECTS ---------- */}
+        {/* ---------- PROJECTS (with screenshots + video) ---------- */}
         <section id="projects" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold mb-6">Projects</h2>
-            {portfolio.projects.length === 0 && (
-              <p className="text-textMuted">No projects added yet.</p>
-            )}
-            <div className="grid sm:grid-cols-2 gap-5">
-              {portfolio.projects.map((p, i) => (
-                <div key={i} className="bg-surface border border-border rounded-lg overflow-hidden">
-                  {p.image && (
-                    <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
-                  )}
-                  <div className="p-5">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-display font-semibold">{p.title}</h3>
-                      {p.featured && (
-                        <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
-                          Featured
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-textMuted text-sm mb-3">{p.description}</p>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {p.techStack?.map((t, idx) => (
-                        <span
-                          key={idx}
-                          className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
+            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Selected Work</p>
+            <h2 className="font-display text-3xl font-semibold mb-10">Projects</h2>
+          </Reveal>
+          {portfolio.projects.length === 0 && (
+            <p className="text-textMuted">No projects added yet.</p>
+          )}
+          <div className="grid sm:grid-cols-2 gap-6">
+            {portfolio.projects.map((p, i) => (
+              <Reveal key={i} className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition group">
+                {p.image && (
+                  <button onClick={() => openLightbox(p, 0)} className="block w-full">
+                    <img src={p.image} alt={p.title} className="w-full h-44 object-cover group-hover:scale-[1.03] transition duration-300" />
+                  </button>
+                )}
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-display font-semibold">{p.title}</h3>
+                    {p.featured && (
+                      <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                        Featured
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-textMuted text-sm mb-3">{p.description}</p>
+
+                  {(p.screenshots?.length > 0 || p.video) && (
+                    <div className="flex gap-2 mb-3">
+                      {p.screenshots?.slice(0, 3).map((src, si) => (
+                        <button
+                          key={si}
+                          onClick={() => openLightbox(p, si)}
+                          className="w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
                         >
-                          {t}
-                        </span>
+                          <img src={src} alt={`${p.title} screenshot ${si + 1}`} className="w-full h-full object-cover" />
+                        </button>
                       ))}
-                    </div>
-                    <div className="flex gap-4 text-sm">
-                      {p.liveLink && (
-                        <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                          Live
-                        </a>
+                      {p.video && (
+                        <button
+                          onClick={() => openLightbox(p, -1)}
+                          className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center bg-surfaceAlt text-primary"
+                          aria-label="Play demo video"
+                        >
+                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                            <path d="M8 5v14l11-7Z" />
+                          </svg>
+                        </button>
                       )}
-                      {p.githubLink && (
-                        <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                          GitHub
-                        </a>
-                      )}
                     </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {p.techStack?.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 text-sm">
+                    {p.liveLink && (
+                      <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                        Live
+                      </a>
+                    )}
+                    {p.githubLink && (
+                      <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                        GitHub
+                      </a>
+                    )}
                   </div>
                 </div>
-              ))}
+              </Reveal>
+            ))}
+          </div>
+
+          {/* Lightbox: screenshots gallery + demo video */}
+          {lightboxProject && (
+            <div
+              className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
+              onClick={() => setLightboxProject(null)}
+            >
+              <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
+                  <button onClick={() => setLightboxProject(null)} className="text-white/70 hover:text-white text-sm">
+                    Close ✕
+                  </button>
+                </div>
+
+                {lightboxIndex === -1 && lightboxProject.video ? (
+                  isVideoFile(lightboxProject.video) ? (
+                    <video src={lightboxProject.video} controls autoPlay className="w-full rounded-xl max-h-[75vh]" />
+                  ) : (
+                    <iframe
+                      src={toEmbedUrl(lightboxProject.video)}
+                      title="Project demo"
+                      allow="autoplay; fullscreen"
+                      className="w-full aspect-video rounded-xl"
+                    />
+                  )
+                ) : (
+                  <img
+                    src={lightboxProject.screenshots?.[lightboxIndex] || lightboxProject.image}
+                    alt={lightboxProject.title}
+                    className="w-full rounded-xl max-h-[75vh] object-contain bg-black"
+                  />
+                )}
+
+                {(lightboxProject.screenshots?.length > 0 || lightboxProject.video) && (
+                  <div className="flex gap-2 mt-3 overflow-x-auto">
+                    {lightboxProject.screenshots?.map((src, si) => (
+                      <button key={si} onClick={() => setLightboxIndex(si)} className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-white/20">
+                        <img src={src} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                    {lightboxProject.video && (
+                      <button onClick={() => setLightboxIndex(-1)} className="w-16 h-16 shrink-0 rounded-lg border border-white/20 flex items-center justify-center bg-white/10 text-white">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                          <path d="M8 5v14l11-7Z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </Reveal>
+          )}
         </section>
 
-        {/* ---------- EXPERIENCE ---------- */}
+        {/* ---------- EXPERIENCE (premium timeline) ---------- */}
         <section id="experience" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold mb-6">Experience</h2>
-            {portfolio.experience.length === 0 && (
-              <p className="text-textMuted">No experience added yet.</p>
-            )}
-            <div className="space-y-6">
+            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Career Path</p>
+            <h2 className="font-display text-3xl font-semibold mb-10">Experience</h2>
+          </Reveal>
+          {portfolio.experience.length === 0 && (
+            <p className="text-textMuted">No experience added yet.</p>
+          )}
+          <div className="relative pl-8">
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+            <div className="space-y-10">
               {portfolio.experience.map((e, i) => (
-                <div key={i} className="border-l-2 border-primary pl-4">
-                  <h3 className="font-semibold">{e.role} · {e.company}</h3>
-                  <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
-                  <p className="text-textMuted text-sm">{e.description}</p>
-                </div>
+                <Reveal key={i} className="relative">
+                  <span className={`absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-bg ${e.current ? "bg-primary" : "bg-textMuted"}`} />
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className="font-semibold">{e.role} · {e.company}</h3>
+                    {e.current && (
+                      <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <p className="mono text-xs text-textMuted mb-2">
+                    {e.duration}
+                    {e.location && ` · ${e.location}`}
+                  </p>
+                  <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>
+                  {e.achievements?.length > 0 && (
+                    <ul className="mt-3 space-y-1.5">
+                      {e.achievements.map((a, ai) => (
+                        <li key={ai} className="flex gap-2 text-sm text-text">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                            <path d="m5 13 4 4L19 7" />
+                          </svg>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Reveal>
               ))}
             </div>
-          </Reveal>
+          </div>
         </section>
 
-        {/* ---------- EDUCATION ---------- */}
+        {/* ---------- EDUCATION (premium, university-aware) ---------- */}
         <section id="education" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold mb-6">Education</h2>
-            {portfolio.education.length === 0 && (
-              <p className="text-textMuted">No education added yet.</p>
-            )}
-            <div className="space-y-6">
-              {portfolio.education.map((e, i) => (
-                <div key={i} className="border-l-2 border-primary pl-4">
-                  <h3 className="font-semibold">{e.degree} · {e.institute}</h3>
-                  <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
-                  <p className="text-textMuted text-sm">{e.description}</p>
-                </div>
-              ))}
-            </div>
+            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Academic Background</p>
+            <h2 className="font-display text-3xl font-semibold mb-10">Education</h2>
           </Reveal>
+          {portfolio.education.length === 0 && (
+            <p className="text-textMuted">No education added yet.</p>
+          )}
+          <div className="grid sm:grid-cols-2 gap-5">
+            {portfolio.education.map((e, i) => (
+              <Reveal key={i} className="bg-surface border border-border rounded-2xl p-6">
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <h3 className="font-semibold">{e.university}</h3>
+                  {e.gpa && (
+                    <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">
+                      GPA {e.gpa}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-primary mb-1">
+                  {e.degree}
+                  {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
+                </p>
+                <p className="mono text-xs text-textMuted mb-3">{e.duration}</p>
+                {e.description && <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>}
+              </Reveal>
+            ))}
+          </div>
         </section>
 
         {/* ---------- CONTACT ---------- */}

@@ -13,13 +13,50 @@ const TABS = [
   { id: "experience", label: "Experience" },
   { id: "education", label: "Education" },
   { id: "techstack", label: "Tech Stack" },
-  { id: "services", label: "Services" },
-  { id: "whyme", label: "Why Choose Me" },
-  { id: "process", label: "Process" },
-  { id: "github", label: "GitHub & Focus" },
-  { id: "testimonials", label: "Testimonials" },
   { id: "contact", label: "Contact" },
-  { id: "theme", label: "Theme" },
+];
+
+// Pakistan's major universities - used as a datalist so the admin can pick
+// a common one or still type a custom name freely.
+export const PAKISTAN_UNIVERSITIES = [
+  "Quaid-i-Azam University, Islamabad",
+  "University of the Punjab, Lahore",
+  "Lahore University of Management Sciences (LUMS)",
+  "National University of Sciences and Technology (NUST)",
+  "FAST - National University of Computer and Emerging Sciences",
+  "Ghulam Ishaq Khan Institute (GIKI)",
+  "University of Karachi",
+  "COMSATS University Islamabad",
+  "University of Engineering and Technology (UET), Lahore",
+  "University of Engineering and Technology (UET), Peshawar",
+  "University of Engineering and Technology (UET), Taxila",
+  "NED University of Engineering and Technology, Karachi",
+  "Aga Khan University",
+  "Institute of Business Administration (IBA), Karachi",
+  "Pakistan Institute of Engineering and Applied Sciences (PIEAS)",
+  "Bahria University",
+  "Air University, Islamabad",
+  "University of Sindh, Jamshoro",
+  "Preston University",
+  "Iqra University",
+  "Habib University",
+  "SZABIST",
+  "Riphah International University",
+  "University of Management and Technology (UMT), Lahore",
+  "University of Central Punjab (UCP)",
+  "Superior University, Lahore",
+  "University of Agriculture, Faisalabad",
+  "Government College University, Lahore",
+  "Government College University, Faisalabad",
+  "University of Sargodha",
+  "The Islamia University of Bahawalpur",
+  "Bahauddin Zakariya University, Multan",
+  "University of Peshawar",
+  "Khyber Medical University",
+  "King Edward Medical University",
+  "Dow University of Health Sciences",
+  "Allama Iqbal Open University",
+  "Virtual University of Pakistan",
 ];
 
 const emptyPortfolio = {
@@ -28,32 +65,29 @@ const emptyPortfolio = {
     subtitle: "",
     tagline: "",
     resumeLink: "",
+    githubLink: "",
     profileImage: "",
     roles: [],
     location: "",
     yearsOfExperience: 0,
     availableForWork: true,
     stats: [],
+    services: [],
+    whyChooseMe: [],
   },
-  about: { bio: "", image: "", highlights: [] },
+  about: { bio: "", image: "", highlights: [], approach: "" },
+  techStack: [],
   skills: [],
   projects: [],
   experience: [],
   education: [],
-  techStack: [],
-  services: [],
-  whyChooseMe: [],
-  process: [],
-  github: { username: "" },
-  currentFocus: "",
-  testimonials: [],
   contact: { email: "", phone: "", location: "", socialLinks: { github: "", linkedin: "", twitter: "", instagram: "" } },
   defaultTheme: "purple",
 };
 
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [tab, setTab] = useState("hero");
   const [form, setForm] = useState(emptyPortfolio);
@@ -69,7 +103,17 @@ const AdminDashboard = () => {
           ...emptyPortfolio,
           ...data,
           hero: { ...emptyPortfolio.hero, ...data.hero },
-          github: { ...emptyPortfolio.github, ...data.github },
+          about: { ...emptyPortfolio.about, ...data.about },
+          contact: {
+            ...emptyPortfolio.contact,
+            ...data.contact,
+            socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
+          },
+          skills: data.skills || [],
+          projects: data.projects || [],
+          experience: data.experience || [],
+          education: data.education || [],
+          techStack: data.techStack || [],
         });
       } catch (err) {
         setMessage("Could not load your portfolio data.");
@@ -90,7 +134,22 @@ const AdminDashboard = () => {
     setMessage("");
     try {
       const { data } = await api.put("/portfolio/me", form);
-      setForm(data);
+      setForm({
+        ...emptyPortfolio,
+        ...data,
+        hero: { ...emptyPortfolio.hero, ...data.hero },
+        about: { ...emptyPortfolio.about, ...data.about },
+        contact: {
+          ...emptyPortfolio.contact,
+          ...data.contact,
+          socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
+        },
+        skills: data.skills || [],
+        projects: data.projects || [],
+        experience: data.experience || [],
+        education: data.education || [],
+        techStack: data.techStack || [],
+      });
       setMessage("Saved successfully.");
     } catch (err) {
       setMessage(err.response?.data?.message || "Save failed.");
@@ -111,12 +170,12 @@ const AdminDashboard = () => {
   };
 
   const addListItem = (listName, template) => {
-    setForm((prev) => ({ ...prev, [listName]: [...prev[listName], template] }));
+    setForm((prev) => ({ ...prev, [listName]: [...(prev[listName] || []), template] }));
   };
 
   const updateListItem = (listName, index, field, value) => {
     setForm((prev) => {
-      const list = [...prev[listName]];
+      const list = [...(prev[listName] || [])];
       list[index] = { ...list[index], [field]: value };
       return { ...prev, [listName]: list };
     });
@@ -124,33 +183,36 @@ const AdminDashboard = () => {
 
   const removeListItem = (listName, index) => {
     setForm((prev) => {
-      const list = [...prev[listName]];
+      const list = [...(prev[listName] || [])];
       list.splice(index, 1);
       return { ...prev, [listName]: list };
     });
   };
 
-  // --- Helpers for nested hero.stats ---
-  const addHeroStat = () => {
+  // --- Helpers for nested hero.stats / hero.services / hero.whyChooseMe ---
+  const addHeroListItem = (field, template) => {
     setForm((prev) => ({
       ...prev,
-      hero: { ...prev.hero, stats: [...(prev.hero.stats || []), { label: "", value: "" }] },
+      hero: { ...prev.hero, [field]: [...(prev.hero[field] || []), template] },
     }));
   };
-  const updateHeroStat = (index, field, value) => {
+  const updateHeroListItem = (field, index, key, value) => {
     setForm((prev) => {
-      const stats = [...(prev.hero.stats || [])];
-      stats[index] = { ...stats[index], [field]: value };
-      return { ...prev, hero: { ...prev.hero, stats } };
+      const list = [...(prev.hero[field] || [])];
+      list[index] = { ...list[index], [key]: value };
+      return { ...prev, hero: { ...prev.hero, [field]: list } };
     });
   };
-  const removeHeroStat = (index) => {
+  const removeHeroListItem = (field, index) => {
     setForm((prev) => {
-      const stats = [...(prev.hero.stats || [])];
-      stats.splice(index, 1);
-      return { ...prev, hero: { ...prev.hero, stats } };
+      const list = [...(prev.hero[field] || [])];
+      list.splice(index, 1);
+      return { ...prev, hero: { ...prev.hero, [field]: list } };
     });
   };
+
+  // --- Multi-line string list helper (used for achievements, screenshots) ---
+  const linesToArray = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
   const inputClass =
     "w-full bg-surfaceAlt border border-border rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition";
@@ -181,6 +243,27 @@ const AdminDashboard = () => {
           >
             /{admin?.slug} ↗
           </a>
+
+          {/* Premium theme switcher - replaces the old standalone "Theme" tab */}
+          <div className="mt-6">
+            <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-2">Theme</p>
+            <div className="flex flex-wrap gap-1.5">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  title={t.label}
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, defaultTheme: t.id }));
+                    setTheme(t.id);
+                  }}
+                  className={`w-6 h-6 rounded-full border-2 transition ${
+                    (form.defaultTheme || theme) === t.id ? "border-primary scale-110" : "border-border"
+                  }`}
+                  style={{ background: t.swatch || "var(--color-primary)" }}
+                />
+              ))}
+            </div>
+          </div>
 
           <nav className="mt-8 space-y-1">
             {TABS.map((t) => (
@@ -238,8 +321,16 @@ const AdminDashboard = () => {
                   <input className={inputClass} value={form.hero.tagline} onChange={(e) => updateField("hero", "tagline", e.target.value)} />
                   <label className={labelClass}>Profile Image URL</label>
                   <input className={inputClass} value={form.hero.profileImage} onChange={(e) => updateField("hero", "profileImage", e.target.value)} />
-                  <label className={labelClass}>Resume Link</label>
-                  <input className={inputClass} value={form.hero.resumeLink} onChange={(e) => updateField("hero", "resumeLink", e.target.value)} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Resume Link</label>
+                      <input className={inputClass} value={form.hero.resumeLink} onChange={(e) => updateField("hero", "resumeLink", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>GitHub Link</label>
+                      <input className={inputClass} placeholder="https://github.com/username" value={form.hero.githubLink} onChange={(e) => updateField("hero", "githubLink", e.target.value)} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className={cardClass}>
@@ -271,22 +362,73 @@ const AdminDashboard = () => {
                   <p className={cardHintClass}>Numbers shown beside your photo and in the stats bar (e.g. Projects Done, Happy Clients).</p>
                   {(form.hero.stats || []).map((s, i) => (
                     <div key={i} className="bg-bg/60 border border-border rounded-xl p-3.5 mb-3 grid grid-cols-2 gap-3">
-                      <input placeholder="Value (e.g. 50+)" className={inputClass} value={s.value} onChange={(e) => updateHeroStat(i, "value", e.target.value)} />
+                      <input placeholder="Value (e.g. 50+)" className={inputClass} value={s.value} onChange={(e) => updateHeroListItem("stats", i, "value", e.target.value)} />
                       <div>
-                        <input placeholder="Label (e.g. Projects Done)" className={inputClass} value={s.label} onChange={(e) => updateHeroStat(i, "label", e.target.value)} />
-                        <button onClick={() => removeHeroStat(i)} className="text-xs text-red-400 mt-2 hover:underline">Remove</button>
+                        <input placeholder="Label (e.g. Projects Done)" className={inputClass} value={s.label} onChange={(e) => updateHeroListItem("stats", i, "label", e.target.value)} />
+                        <button onClick={() => removeHeroListItem("stats", i)} className="text-xs text-red-400 mt-2 hover:underline">Remove</button>
                       </div>
                     </div>
                   ))}
-                  <button onClick={addHeroStat} className="text-sm text-primary hover:underline font-medium">+ Add Stat</button>
+                  <button onClick={() => addHeroListItem("stats", { label: "", value: "" })} className="text-sm text-primary hover:underline font-medium">+ Add Stat</button>
+                </div>
+
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>Services</p>
+                  <p className={cardHintClass}>What you offer clients — shown right on the hero, no separate section needed.</p>
+                  {(form.hero.services || []).map((s, i) => (
+                    <div key={i} className="bg-bg/60 border border-border rounded-xl p-3.5 mb-3">
+                      <input placeholder="Title (e.g. Web Development)" className={inputClass} value={s.title} onChange={(e) => updateHeroListItem("services", i, "title", e.target.value)} />
+                      <label className={labelClass}>Description</label>
+                      <textarea rows={2} className={inputClass} value={s.description} onChange={(e) => updateHeroListItem("services", i, "description", e.target.value)} />
+                      <button onClick={() => removeHeroListItem("services", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={() => addHeroListItem("services", { title: "", description: "" })} className="text-sm text-primary hover:underline font-medium">+ Add Service</button>
+                </div>
+
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>Why Choose Me</p>
+                  <p className={cardHintClass}>Your key selling points — also shown on the hero.</p>
+                  {(form.hero.whyChooseMe || []).map((w, i) => (
+                    <div key={i} className="bg-bg/60 border border-border rounded-xl p-3.5 mb-3">
+                      <input placeholder="Title (e.g. Clean Code)" className={inputClass} value={w.title} onChange={(e) => updateHeroListItem("whyChooseMe", i, "title", e.target.value)} />
+                      <label className={labelClass}>Description</label>
+                      <textarea rows={2} className={inputClass} value={w.description} onChange={(e) => updateHeroListItem("whyChooseMe", i, "description", e.target.value)} />
+                      <button onClick={() => removeHeroListItem("whyChooseMe", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={() => addHeroListItem("whyChooseMe", { title: "", description: "" })} className="text-sm text-primary hover:underline font-medium">+ Add Point</button>
                 </div>
               </div>
             )}
 
             {tab === "about" && (
               <div>
-                <label className={labelClass}>Bio</label>
-                <textarea rows={6} className={inputClass} value={form.about.bio} onChange={(e) => updateField("about", "bio", e.target.value)} />
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>Bio</p>
+                  <p className={cardHintClass}>Your main story — feel free to write a few paragraphs.</p>
+                  <textarea rows={8} className={inputClass} value={form.about.bio} onChange={(e) => updateField("about", "bio", e.target.value)} />
+                </div>
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>My Approach</p>
+                  <p className={cardHintClass}>How you work — process, values, what clients can expect.</p>
+                  <textarea rows={6} className={inputClass} value={form.about.approach} onChange={(e) => updateField("about", "approach", e.target.value)} />
+                </div>
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>Highlights</p>
+                  <p className={cardHintClass}>One per line — short bullet points shown next to your bio.</p>
+                  <textarea
+                    rows={5}
+                    className={inputClass}
+                    placeholder={"5+ years building production apps\nShipped 20+ client projects\nOpen source contributor"}
+                    value={(form.about.highlights || []).join("\n")}
+                    onChange={(e) => updateField("about", "highlights", linesToArray(e.target.value))}
+                  />
+                </div>
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>About Image</p>
+                  <input className={inputClass} value={form.about.image} onChange={(e) => updateField("about", "image", e.target.value)} />
+                </div>
               </div>
             )}
 
@@ -314,8 +456,18 @@ const AdminDashboard = () => {
                     <input placeholder="Title" className={inputClass} value={p.title} onChange={(e) => updateListItem("projects", i, "title", e.target.value)} />
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("projects", i, "description", e.target.value)} />
-                    <label className={labelClass}>Image URL</label>
+                    <label className={labelClass}>Cover Image URL</label>
                     <input className={inputClass} value={p.image || ""} onChange={(e) => updateListItem("projects", i, "image", e.target.value)} />
+                    <label className={labelClass}>Screenshots (one URL per line)</label>
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder={"https://.../screenshot1.png\nhttps://.../screenshot2.png"}
+                      value={(p.screenshots || []).join("\n")}
+                      onChange={(e) => updateListItem("projects", i, "screenshots", linesToArray(e.target.value))}
+                    />
+                    <label className={labelClass}>Demo Video URL (YouTube/Loom/mp4)</label>
+                    <input className={inputClass} placeholder="https://..." value={p.video || ""} onChange={(e) => updateListItem("projects", i, "video", e.target.value)} />
                     <label className={labelClass}>Tech Stack (comma separated)</label>
                     <input
                       className={inputClass}
@@ -333,7 +485,7 @@ const AdminDashboard = () => {
                     <button onClick={() => removeListItem("projects", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
                   </div>
                 ))}
-                <button onClick={() => addListItem("projects", { title: "", description: "", image: "", techStack: [], liveLink: "", githubLink: "", featured: false })} className="text-sm text-primary hover:underline">+ Add Project</button>
+                <button onClick={() => addListItem("projects", { title: "", description: "", image: "", screenshots: [], video: "", techStack: [], liveLink: "", githubLink: "", featured: false })} className="text-sm text-primary hover:underline">+ Add Project</button>
               </div>
             )}
 
@@ -345,31 +497,62 @@ const AdminDashboard = () => {
                       <input placeholder="Company" className={inputClass} value={e.company} onChange={(ev) => updateListItem("experience", i, "company", ev.target.value)} />
                       <input placeholder="Role" className={inputClass} value={e.role} onChange={(ev) => updateListItem("experience", i, "role", ev.target.value)} />
                     </div>
-                    <label className={labelClass}>Duration</label>
-                    <input className={inputClass} value={e.duration} onChange={(ev) => updateListItem("experience", i, "duration", ev.target.value)} />
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <input placeholder="Location (e.g. Remote / Lahore)" className={inputClass} value={e.location || ""} onChange={(ev) => updateListItem("experience", i, "location", ev.target.value)} />
+                      <input placeholder="Duration (e.g. Jan 2023 - Present)" className={inputClass} value={e.duration} onChange={(ev) => updateListItem("experience", i, "duration", ev.target.value)} />
+                    </div>
+                    <label className="flex items-center gap-2 mt-4 text-sm">
+                      <input type="checkbox" className="accent-primary w-4 h-4" checked={!!e.current} onChange={(ev) => updateListItem("experience", i, "current", ev.target.checked)} />
+                      Currently working here
+                    </label>
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={e.description} onChange={(ev) => updateListItem("experience", i, "description", ev.target.value)} />
+                    <label className={labelClass}>Key Achievements (one per line)</label>
+                    <textarea
+                      rows={3}
+                      className={inputClass}
+                      placeholder={"Led migration to microservices, cutting load times by 40%\nMentored 3 junior developers"}
+                      value={(e.achievements || []).join("\n")}
+                      onChange={(ev) => updateListItem("experience", i, "achievements", linesToArray(ev.target.value))}
+                    />
                     <button onClick={() => removeListItem("experience", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
                   </div>
                 ))}
-                <button onClick={() => addListItem("experience", { company: "", role: "", duration: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Experience</button>
+                <button onClick={() => addListItem("experience", { company: "", role: "", location: "", duration: "", current: false, description: "", achievements: [] })} className="text-sm text-primary hover:underline">+ Add Experience</button>
               </div>
             )}
 
             {tab === "education" && (
               <div>
+                <datalist id="pk-universities">
+                  {PAKISTAN_UNIVERSITIES.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
                 {form.education.map((e, i) => (
                   <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <input placeholder="Institute" className={inputClass} value={e.institute} onChange={(ev) => updateListItem("education", i, "institute", ev.target.value)} />
-                      <input placeholder="Degree" className={inputClass} value={e.degree} onChange={(ev) => updateListItem("education", i, "degree", ev.target.value)} />
+                    <label className={labelClass}>University</label>
+                    <input
+                      list="pk-universities"
+                      placeholder="Start typing to pick a Pakistani university, or type your own"
+                      className={inputClass}
+                      value={e.university || ""}
+                      onChange={(ev) => updateListItem("education", i, "university", ev.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <input placeholder="Degree (e.g. BS Computer Science)" className={inputClass} value={e.degree} onChange={(ev) => updateListItem("education", i, "degree", ev.target.value)} />
+                      <input placeholder="Field of Study" className={inputClass} value={e.fieldOfStudy || ""} onChange={(ev) => updateListItem("education", i, "fieldOfStudy", ev.target.value)} />
                     </div>
-                    <label className={labelClass}>Duration</label>
-                    <input className={inputClass} value={e.duration} onChange={(ev) => updateListItem("education", i, "duration", ev.target.value)} />
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <input placeholder="Duration (e.g. 2019 - 2023)" className={inputClass} value={e.duration} onChange={(ev) => updateListItem("education", i, "duration", ev.target.value)} />
+                      <input placeholder="GPA (optional)" className={inputClass} value={e.gpa || ""} onChange={(ev) => updateListItem("education", i, "gpa", ev.target.value)} />
+                    </div>
+                    <label className={labelClass}>Description</label>
+                    <textarea rows={2} className={inputClass} value={e.description} onChange={(ev) => updateListItem("education", i, "description", ev.target.value)} />
                     <button onClick={() => removeListItem("education", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
                   </div>
                 ))}
-                <button onClick={() => addListItem("education", { institute: "", degree: "", duration: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Education</button>
+                <button onClick={() => addListItem("education", { university: "", degree: "", fieldOfStudy: "", duration: "", gpa: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Education</button>
               </div>
             )}
 
@@ -383,91 +566,6 @@ const AdminDashboard = () => {
                   value={form.techStack?.join(", ") || ""}
                   onChange={(e) => setForm((prev) => ({ ...prev, techStack: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) }))}
                 />
-              </div>
-            )}
-
-            {tab === "services" && (
-              <div>
-                {form.services.map((s, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
-                    <input placeholder="Service title (e.g. Web Development)" className={inputClass} value={s.title} onChange={(e) => updateListItem("services", i, "title", e.target.value)} />
-                    <label className={labelClass}>Description</label>
-                    <textarea rows={2} className={inputClass} value={s.description} onChange={(e) => updateListItem("services", i, "description", e.target.value)} />
-                    <button onClick={() => removeListItem("services", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
-                  </div>
-                ))}
-                <button onClick={() => addListItem("services", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Service</button>
-              </div>
-            )}
-
-            {tab === "whyme" && (
-              <div>
-                {form.whyChooseMe.map((w, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
-                    <input placeholder="Title (e.g. Clean Code)" className={inputClass} value={w.title} onChange={(e) => updateListItem("whyChooseMe", i, "title", e.target.value)} />
-                    <label className={labelClass}>Description</label>
-                    <textarea rows={2} className={inputClass} value={w.description} onChange={(e) => updateListItem("whyChooseMe", i, "description", e.target.value)} />
-                    <button onClick={() => removeListItem("whyChooseMe", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
-                  </div>
-                ))}
-                <button onClick={() => addListItem("whyChooseMe", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Point</button>
-              </div>
-            )}
-
-            {tab === "process" && (
-              <div>
-                {form.process.map((p, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
-                    <p className="mono text-xs text-textMuted mb-2">Step {i + 1}</p>
-                    <input placeholder="Title (e.g. Discovery & Planning)" className={inputClass} value={p.title} onChange={(e) => updateListItem("process", i, "title", e.target.value)} />
-                    <label className={labelClass}>Description</label>
-                    <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("process", i, "description", e.target.value)} />
-                    <button onClick={() => removeListItem("process", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
-                  </div>
-                ))}
-                <button onClick={() => addListItem("process", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Step</button>
-              </div>
-            )}
-
-            {tab === "github" && (
-              <div>
-                <div className={cardClass}>
-                  <p className={cardTitleClass}>GitHub Activity</p>
-                  <p className={cardHintClass}>Pulls your real public repo count, followers, and contribution graph.</p>
-                  <label className={labelClass}>GitHub Username</label>
-                  <input className={inputClass} placeholder="e.g. octocat" value={form.github?.username || ""} onChange={(e) => updateField("github", "username", e.target.value)} />
-                </div>
-                <div className={cardClass}>
-                  <p className={cardTitleClass}>Current Focus</p>
-                  <p className={cardHintClass}>One line about what you're currently building or learning.</p>
-                  <textarea rows={2} className={inputClass} value={form.currentFocus} onChange={(e) => setForm((prev) => ({ ...prev, currentFocus: e.target.value }))} />
-                </div>
-              </div>
-            )}
-
-            {tab === "testimonials" && (
-              <div>
-                <p className="text-xs text-textMuted mb-4">Only testimonials marked "Approved" will be shown publicly — add real ones only.</p>
-                {form.testimonials.map((t, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <input placeholder="Name" className={inputClass} value={t.name} onChange={(e) => updateListItem("testimonials", i, "name", e.target.value)} />
-                      <input placeholder="Role" className={inputClass} value={t.role} onChange={(e) => updateListItem("testimonials", i, "role", e.target.value)} />
-                    </div>
-                    <label className={labelClass}>Company</label>
-                    <input className={inputClass} value={t.company} onChange={(e) => updateListItem("testimonials", i, "company", e.target.value)} />
-                    <label className={labelClass}>Quote</label>
-                    <textarea rows={2} className={inputClass} value={t.quote} onChange={(e) => updateListItem("testimonials", i, "quote", e.target.value)} />
-                    <label className={labelClass}>Avatar URL</label>
-                    <input className={inputClass} value={t.avatar} onChange={(e) => updateListItem("testimonials", i, "avatar", e.target.value)} />
-                    <label className="flex items-center gap-2 mt-4 text-sm">
-                      <input type="checkbox" className="accent-primary w-4 h-4" checked={!!t.approved} onChange={(e) => updateListItem("testimonials", i, "approved", e.target.checked)} />
-                      Approved (show on public site)
-                    </label>
-                    <button onClick={() => removeListItem("testimonials", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
-                  </div>
-                ))}
-                <button onClick={() => addListItem("testimonials", { name: "", role: "", company: "", quote: "", avatar: "", approved: false })} className="text-sm text-primary hover:underline">+ Add Testimonial</button>
               </div>
             )}
 
@@ -486,28 +584,6 @@ const AdminDashboard = () => {
                     <input className={inputClass} value={form.contact.socialLinks?.[key] || ""} onChange={(e) => updateSocial(key, e.target.value)} />
                   </div>
                 ))}
-              </div>
-            )}
-
-            {tab === "theme" && (
-              <div>
-                <p className="text-textMuted text-sm mb-4">Choose the default theme visitors will see on your portfolio.</p>
-                <div className="grid grid-cols-5 gap-3">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setForm((prev) => ({ ...prev, defaultTheme: t.id }));
-                        setTheme(t.id);
-                      }}
-                      className={`py-3 rounded-md text-sm border transition ${
-                        form.defaultTheme === t.id ? "border-primary bg-surfaceAlt" : "border-border"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
           </motion.div>

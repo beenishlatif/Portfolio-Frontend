@@ -496,7 +496,8 @@ const Portfolio = ({ slugProp }) => {
   const services = portfolio.hero?.services || [];
   const whyChooseMe = portfolio.hero?.whyChooseMe || [];
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
-
+  const skillCategories = ["All", ...Object.keys(skillGroups)];
+  const skillCount = portfolio.skills?.length || 0;
   const skillCategoryCount = Object.keys(skillGroups).length;
   const avgSkillLevel = skillCount
     ? Math.round(portfolio.skills.reduce((sum, s) => sum + (s.level || 0), 0) / skillCount)

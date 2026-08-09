@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
+import { Image as ImageIcon, Video as VideoIcon, X, PlayCircle } from "lucide-react";
 
 const TABS = [
   { id: "hero", label: "Hero" },
@@ -85,6 +86,17 @@ const emptyPortfolio = {
   defaultTheme: "purple",
 };
 
+const emptyProject = {
+  title: "",
+  description: "",
+  screenshots: [], // [{ url, caption }]
+  video: { url: "", caption: "" },
+  techStack: [],
+  liveLink: "",
+  githubLink: "",
+  featured: false,
+};
+
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -96,7 +108,6 @@ const AdminDashboard = () => {
   const [message, setMessage] = useState("");
 
   // --- Upload state (keyed by project index) for gallery-based media pickers ---
-  const [uploadingImage, setUploadingImage] = useState({});
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
 
@@ -115,7 +126,12 @@ const AdminDashboard = () => {
             socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
           },
           skills: data.skills || [],
-          projects: data.projects || [],
+          projects: (data.projects || []).map((p) => ({
+            ...emptyProject,
+            ...p,
+            screenshots: p.screenshots || [],
+            video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
+          })),
           experience: data.experience || [],
           education: data.education || [],
           techStack: data.techStack || [],
@@ -150,7 +166,12 @@ const AdminDashboard = () => {
           socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
         },
         skills: data.skills || [],
-        projects: data.projects || [],
+        projects: (data.projects || []).map((p) => ({
+          ...emptyProject,
+          ...p,
+          screenshots: p.screenshots || [],
+          video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
+        })),
         experience: data.experience || [],
         education: data.education || [],
         techStack: data.techStack || [],
@@ -216,10 +237,10 @@ const AdminDashboard = () => {
     });
   };
 
-  // --- Multi-line string list helper (used for achievements, screenshots) ---
+  // --- Multi-line string list helper (used for achievements) ---
   const linesToArray = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-  // --- Gallery upload helpers for project media (cover image / screenshots / video) ---
+  // --- Gallery upload helpers for project media (screenshots / video) ---
   // NOTE: adjust the endpoint path and the `data.url` response key below to match
   // whatever your backend's upload route actually returns.
   const uploadFile = async (file) => {
@@ -231,19 +252,6 @@ const AdminDashboard = () => {
     return data.url;
   };
 
-  const handleCoverImageSelect = async (index, file) => {
-    if (!file) return;
-    setUploadingImage((prev) => ({ ...prev, [index]: true }));
-    try {
-      const url = await uploadFile(file);
-      updateListItem("projects", index, "image", url);
-    } catch (err) {
-      setMessage("Image upload failed.");
-    } finally {
-      setUploadingImage((prev) => ({ ...prev, [index]: false }));
-    }
-  };
-
   const handleScreenshotsSelect = async (index, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -252,7 +260,8 @@ const AdminDashboard = () => {
       const urls = await Promise.all(files.map((f) => uploadFile(f)));
       setForm((prev) => {
         const list = [...prev.projects];
-        list[index] = { ...list[index], screenshots: [...(list[index].screenshots || []), ...urls] };
+        const newShots = urls.map((url) => ({ url, caption: "" }));
+        list[index] = { ...list[index], screenshots: [...(list[index].screenshots || []), ...newShots] };
         return { ...prev, projects: list };
       });
     } catch (err) {
@@ -260,6 +269,16 @@ const AdminDashboard = () => {
     } finally {
       setUploadingScreenshots((prev) => ({ ...prev, [index]: false }));
     }
+  };
+
+  const updateScreenshotCaption = (index, screenshotIndex, caption) => {
+    setForm((prev) => {
+      const list = [...prev.projects];
+      const shots = [...(list[index].screenshots || [])];
+      shots[screenshotIndex] = { ...shots[screenshotIndex], caption };
+      list[index] = { ...list[index], screenshots: shots };
+      return { ...prev, projects: list };
+    });
   };
 
   const removeScreenshot = (index, screenshotIndex) => {
@@ -277,12 +296,32 @@ const AdminDashboard = () => {
     setUploadingVideo((prev) => ({ ...prev, [index]: true }));
     try {
       const url = await uploadFile(file);
-      updateListItem("projects", index, "video", url);
+      setForm((prev) => {
+        const list = [...prev.projects];
+        list[index] = { ...list[index], video: { url, caption: list[index].video?.caption || "" } };
+        return { ...prev, projects: list };
+      });
     } catch (err) {
       setMessage("Video upload failed.");
     } finally {
       setUploadingVideo((prev) => ({ ...prev, [index]: false }));
     }
+  };
+
+  const updateVideoCaption = (index, caption) => {
+    setForm((prev) => {
+      const list = [...prev.projects];
+      list[index] = { ...list[index], video: { ...list[index].video, caption } };
+      return { ...prev, projects: list };
+    });
+  };
+
+  const removeVideo = (index) => {
+    setForm((prev) => {
+      const list = [...prev.projects];
+      list[index] = { ...list[index], video: { url: "", caption: "" } };
+      return { ...prev, projects: list };
+    });
   };
 
   const inputClass =
@@ -292,7 +331,7 @@ const AdminDashboard = () => {
   const cardTitleClass = "font-display text-xs font-semibold tracking-widest text-primary uppercase mb-1";
   const cardHintClass = "text-xs text-textMuted mb-5";
   const galleryBtnClass =
-    "text-xs px-3 py-1.5 rounded-md border border-border cursor-pointer hover:bg-surfaceAlt transition inline-block";
+    "text-xs px-3 py-1.5 rounded-md border border-border cursor-pointer hover:bg-surfaceAlt transition inline-flex items-center gap-1.5";
 
   if (loading) {
     return (
@@ -530,52 +569,41 @@ const AdminDashboard = () => {
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("projects", i, "description", e.target.value)} />
 
-                    {/* Cover Image - gallery picker */}
-                    <label className={labelClass}>Cover Image</label>
-                    <div className="flex items-center gap-4 mt-1">
-                      {p.image ? (
-                        <img src={p.image} alt="Cover" className="w-20 h-20 rounded-lg object-cover border border-border" />
-                      ) : (
-                        <div className="w-20 h-20 rounded-lg border border-dashed border-border flex items-center justify-center text-textMuted text-[10px] mono text-center px-1">
-                          No image
-                        </div>
-                      )}
-                      <div>
-                        <label className={galleryBtnClass}>
-                          {uploadingImage[i] ? "Uploading..." : "Choose from Gallery"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={!!uploadingImage[i]}
-                            onChange={(e) => handleCoverImageSelect(i, e.target.files?.[0])}
-                          />
-                        </label>
-                        {p.image && (
-                          <button onClick={() => updateListItem("projects", i, "image", "")} className="text-xs text-red-400 ml-3 hover:underline">
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Screenshots - gallery picker (multiple) */}
+                    {/* Screenshots - gallery picker (multiple), each with its own caption.
+                        The first screenshot added automatically becomes the project's cover
+                        image on the public portfolio - no separate cover upload needed. */}
                     <label className={labelClass}>Screenshots</label>
-                    <div className="flex flex-wrap gap-3 mt-1 mb-2">
-                      {(p.screenshots || []).map((src, si) => (
-                        <div key={si} className="relative group">
-                          <img src={src} alt={`Screenshot ${si + 1}`} className="w-16 h-16 rounded-lg object-cover border border-border" />
-                          <button
-                            onClick={() => removeScreenshot(i, si)}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                          >
-                            ×
-                          </button>
+                    <p className="text-[11px] text-textMuted -mt-1 mb-2">
+                      The first screenshot here is used as the project's cover on your portfolio.
+                    </p>
+                    <div className="space-y-3 mb-3">
+                      {(p.screenshots || []).map((shot, si) => (
+                        <div key={si} className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
+                          <div className="relative shrink-0">
+                            <img src={shot.url} alt={`Screenshot ${si + 1}`} className="w-20 h-20 rounded-lg object-cover border border-border" />
+                            {si === 0 && (
+                              <span className="absolute -top-1.5 -left-1.5 mono text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-white">
+                                Cover
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <input
+                              placeholder="Short description for this screenshot (optional)"
+                              className={inputClass}
+                              value={shot.caption || ""}
+                              onChange={(e) => updateScreenshotCaption(i, si, e.target.value)}
+                            />
+                            <button onClick={() => removeScreenshot(i, si)} className="text-xs text-red-400 mt-2 hover:underline">
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                     <label className={galleryBtnClass}>
-                      {uploadingScreenshots[i] ? "Uploading..." : "+ Add Screenshots from Gallery"}
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      {uploadingScreenshots[i] ? "Uploading..." : "Add Screenshots from Gallery"}
                       <input
                         type="file"
                         accept="image/*"
@@ -586,34 +614,39 @@ const AdminDashboard = () => {
                       />
                     </label>
 
-                    {/* Demo Video - gallery picker */}
+                    {/* Demo Video - gallery picker + caption */}
                     <label className={labelClass}>Demo Video</label>
-                    <div className="flex items-center gap-4 mt-1">
-                      {p.video ? (
-                        <video src={p.video} className="w-28 h-16 rounded-lg object-cover border border-border" muted />
-                      ) : (
-                        <div className="w-28 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-textMuted text-[10px] mono text-center px-1">
-                          No video
+                    {p.video?.url ? (
+                      <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
+                        <div className="relative shrink-0 w-28 h-20 rounded-lg overflow-hidden border border-border bg-surfaceAlt flex items-center justify-center">
+                          <video src={p.video.url} className="w-full h-full object-cover" muted />
+                          <PlayCircle className="w-6 h-6 text-white absolute" />
                         </div>
-                      )}
-                      <div>
-                        <label className={galleryBtnClass}>
-                          {uploadingVideo[i] ? "Uploading..." : "Choose from Gallery"}
+                        <div className="flex-1 min-w-0">
                           <input
-                            type="file"
-                            accept="video/*"
-                            className="hidden"
-                            disabled={!!uploadingVideo[i]}
-                            onChange={(e) => handleVideoSelect(i, e.target.files?.[0])}
+                            placeholder="Short description for this video (optional)"
+                            className={inputClass}
+                            value={p.video.caption || ""}
+                            onChange={(e) => updateVideoCaption(i, e.target.value)}
                           />
-                        </label>
-                        {p.video && (
-                          <button onClick={() => updateListItem("projects", i, "video", "")} className="text-xs text-red-400 ml-3 hover:underline">
-                            Remove
+                          <button onClick={() => removeVideo(i)} className="text-xs text-red-400 mt-2 hover:underline flex items-center gap-1">
+                            <X className="w-3 h-3" /> Remove video
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <label className={galleryBtnClass}>
+                        <VideoIcon className="w-3.5 h-3.5" />
+                        {uploadingVideo[i] ? "Uploading..." : "Choose Video from Gallery"}
+                        <input
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          disabled={!!uploadingVideo[i]}
+                          onChange={(e) => handleVideoSelect(i, e.target.files?.[0])}
+                        />
+                      </label>
+                    )}
 
                     <label className={labelClass}>Tech Stack (comma separated)</label>
                     <input
@@ -627,12 +660,12 @@ const AdminDashboard = () => {
                     </div>
                     <label className="flex items-center gap-2 mt-4 text-sm">
                       <input type="checkbox" className="accent-primary w-4 h-4" checked={!!p.featured} onChange={(e) => updateListItem("projects", i, "featured", e.target.checked)} />
-                      Mark as Featured (shown on homepage)
+                      Mark as Featured (shown with a badge)
                     </label>
-                    <button onClick={() => removeListItem("projects", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                    <button onClick={() => removeListItem("projects", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove Project</button>
                   </div>
                 ))}
-                <button onClick={() => addListItem("projects", { title: "", description: "", image: "", screenshots: [], video: "", techStack: [], liveLink: "", githubLink: "", featured: false })} className="text-sm text-primary hover:underline">+ Add Project</button>
+                <button onClick={() => addListItem("projects", { ...emptyProject })} className="text-sm text-primary hover:underline">+ Add Project</button>
               </div>
             )}
 

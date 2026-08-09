@@ -3,6 +3,18 @@ import { useParams, Link } from "react-router-dom";
 import { AnimatePresence, motion, animate, useMotionValue } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
+import {
+  Github,
+  ExternalLink,
+  Sparkles,
+  Images,
+  Eye,
+  PlayCircle,
+  Image as ImageIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 const SECTIONS = [
   { id: "hero", label: "Home" },
@@ -291,16 +303,15 @@ const toEmbedUrl = (url = "") => {
   return url;
 };
 
-// Combines a project's cover image, screenshots, and video into one
-// navigable media array for the lightbox (dedupes the cover image if it
-// also appears in screenshots).
+// Combines a project's screenshots + demo video into one navigable media
+// array for the lightbox. Each item carries its own caption/description.
+// The first screenshot (if any) also doubles as the card's cover image.
 const getProjectMedia = (p) => {
   const items = [];
-  if (p.image) items.push({ type: "image", src: p.image });
-  (p.screenshots || []).forEach((src) => {
-    if (src && src !== p.image) items.push({ type: "image", src });
+  (p.screenshots || []).forEach((s) => {
+    if (s?.url) items.push({ type: "image", src: s.url, caption: s.caption || "" });
   });
-  if (p.video) items.push({ type: "video", src: p.video });
+  if (p.video?.url) items.push({ type: "video", src: p.video.url, caption: p.video.caption || "" });
   return items;
 };
 
@@ -514,8 +525,6 @@ const Portfolio = ({ slugProp }) => {
     projectFilter === "All"
       ? portfolio.projects || []
       : (portfolio.projects || []).filter((p) => p.techStack?.includes(projectFilter));
-  const spotlightProjects = filteredProjects.filter((p) => p.featured);
-  const otherProjects = filteredProjects.filter((p) => !p.featured);
 
   const openLightbox = (project, startIndex = 0) => {
     const media = getProjectMedia(project);
@@ -1111,58 +1120,107 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 )}
 
-                {/* Featured spotlight - larger, side-by-side cards for standout work */}
-                {spotlightProjects.length > 0 && (
-                  <div className="mt-10 space-y-6">
-                    {spotlightProjects.map((p, i) => {
+                {/* Unified project grid — clean, consistent card size, no more
+                    long side-by-side "spotlight" layout. Featured just gets a badge. */}
+                {filteredProjects.length > 0 && (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
+                    {filteredProjects.map((p, i) => {
                       const media = getProjectMedia(p);
+                      const cover = media[0];
                       return (
                         <TiltCard
-                          key={`spotlight-${p.title}-${i}`}
-                          delay={i * 0.06}
-                          className="relative bg-surface border border-primary/30 rounded-3xl overflow-hidden grid md:grid-cols-2 hover:border-primary/60 hover:shadow-[0_24px_50px_-24px_var(--color-primary)] transition-[border-color,box-shadow] group"
+                          key={`${p.title}-${i}`}
+                          delay={Math.min(i * 0.05, 0.4)}
+                          className="group relative bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.4)] transition-[border-color,box-shadow]"
                         >
-                          <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-[90px] group-hover:bg-primary/30 transition-colors" />
-                          {p.image && (
-                            <button onClick={() => openLightbox(p, 0)} className="relative block w-full h-56 md:h-full overflow-hidden">
-                              <img src={p.image} alt={p.title} className="w-full h-full object-cover group-hover:scale-[1.06] transition duration-500" />
-                              {media.length > 1 && (
-                                <span className="absolute bottom-3 right-3 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur">
-                                  {media.length} items
-                                </span>
-                              )}
-                            </button>
-                          )}
-                          <div className="relative p-6 md:p-8 flex flex-col justify-center">
-                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide w-fit mb-3">
-                              Featured
+                          {p.featured && (
+                            <span className="absolute top-3 left-3 z-10 mono text-[10px] px-2.5 py-1 rounded-full bg-gradient-to-r from-primary to-accent text-white flex items-center gap-1 shadow-lg">
+                              <Sparkles className="w-3 h-3" /> Featured
                             </span>
-                            <h3 className="font-display text-xl md:text-2xl font-semibold mb-2">{p.title}</h3>
-                            <p className="text-textMuted text-sm leading-relaxed mb-4">{p.description}</p>
-                            <div className="flex flex-wrap gap-1.5 mb-5">
-                              {p.techStack?.map((t, idx) => (
-                                <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
-                                  {t}
+                          )}
+
+                          <button
+                            onClick={() => (media.length > 0 ? openLightbox(p, 0) : null)}
+                            disabled={media.length === 0}
+                            className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
+                          >
+                            {cover ? (
+                              cover.type === "video" ? (
+                                <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
+                                  <PlayCircle className="w-10 h-10" />
+                                </div>
+                              ) : (
+                                <img
+                                  src={cover.src}
+                                  alt={p.title}
+                                  className="w-full h-full object-cover group-hover:scale-[1.06] transition duration-500"
+                                />
+                              )
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-textMuted">
+                                <ImageIcon className="w-8 h-8" />
+                              </div>
+                            )}
+
+                            {media.length > 1 && (
+                              <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur flex items-center gap-1">
+                                <Images className="w-3 h-3" />
+                                {media.length}
+                              </span>
+                            )}
+
+                            {media.length > 0 && (
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                                <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Eye className="w-4 h-4" /> View Gallery
                                 </span>
-                              ))}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-4 text-sm">
-                              {p.liveLink && (
-                                <a href={p.liveLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium">
-                                  Live Demo ↗
-                                </a>
-                              )}
-                              {p.githubLink && (
-                                <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-textMuted hover:text-primary transition">
-                                  GitHub
-                                </a>
-                              )}
-                              {media.length > 0 && (
-                                <button onClick={() => openLightbox(p, 0)} className="text-textMuted hover:text-primary transition">
-                                  View Gallery
-                                </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
+                          </button>
+
+                          <div className="p-5">
+                            <h3 className="font-display font-semibold mb-1.5">{p.title}</h3>
+                            <p className="text-textMuted text-sm leading-relaxed mb-4 line-clamp-2">{p.description}</p>
+
+                            {p.techStack?.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mb-4">
+                                {p.techStack.slice(0, 4).map((t, idx) => (
+                                  <span key={idx} className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-accent">
+                                    {t}
+                                  </span>
+                                ))}
+                                {p.techStack.length > 4 && (
+                                  <span className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-textMuted">
+                                    +{p.techStack.length - 4}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {(p.liveLink || p.githubLink) && (
+                              <div className="flex items-center gap-4 pt-3 border-t border-border">
+                                {p.liveLink && (
+                                  <a
+                                    href={p.liveLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> Live Demo
+                                  </a>
+                                )}
+                                {p.githubLink && (
+                                  <a
+                                    href={p.githubLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
+                                  >
+                                    <Github className="w-3.5 h-3.5" /> Code
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </TiltCard>
                       );
@@ -1170,99 +1228,8 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 )}
 
-                {/* Rest of the projects */}
-                {otherProjects.length > 0 && (
-                  <div className="mt-12">
-                    {spotlightProjects.length > 0 && (
-                      <p className="mono text-xs text-textMuted uppercase tracking-widest mb-5">More Projects</p>
-                    )}
-                    <div className="grid sm:grid-cols-2 gap-6">
-                      {otherProjects.map((p, i) => {
-                        const media = getProjectMedia(p);
-                        return (
-                          <TiltCard
-                            key={`${p.title}-${i}`}
-                            delay={i * 0.05}
-                            className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] group"
-                          >
-                            {p.image && (
-                              <button onClick={() => openLightbox(p, 0)} className="relative block w-full overflow-hidden">
-                                <img
-                                  src={p.image}
-                                  alt={p.title}
-                                  className="w-full h-44 object-cover group-hover:scale-[1.05] transition duration-500"
-                                />
-                                {media.length > 1 && (
-                                  <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-full backdrop-blur">
-                                    {media.length} items
-                                  </span>
-                                )}
-                              </button>
-                            )}
-                            <div className="p-5">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-display font-semibold">{p.title}</h3>
-                              </div>
-                              <p className="text-textMuted text-sm mb-3">{p.description}</p>
-
-                              {media.length > 1 && (
-                                <div className="flex gap-2 mb-3">
-                                  {media.slice(1, 4).map((m, mi) => (
-                                    <button
-                                      key={mi}
-                                      onClick={() => openLightbox(p, mi + 1)}
-                                      className="relative w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
-                                    >
-                                      {m.type === "video" ? (
-                                        <span className="w-full h-full flex items-center justify-center bg-surfaceAlt text-primary">
-                                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                            <path d="M8 5v14l11-7Z" />
-                                          </svg>
-                                        </span>
-                                      ) : (
-                                        <img src={m.src} alt={`${p.title} media ${mi + 2}`} className="w-full h-full object-cover" />
-                                      )}
-                                    </button>
-                                  ))}
-                                  {media.length > 4 && (
-                                    <button
-                                      onClick={() => openLightbox(p, 4)}
-                                      className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center mono text-xs text-textMuted bg-surfaceAlt"
-                                    >
-                                      +{media.length - 4}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              <div className="flex flex-wrap gap-1.5 mb-3">
-                                {p.techStack?.map((t, idx) => (
-                                  <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
-                                    {t}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="flex gap-4 text-sm">
-                                {p.liveLink && (
-                                  <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                                    Live
-                                  </a>
-                                )}
-                                {p.githubLink && (
-                                  <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                                    GitHub
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </TiltCard>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Lightbox: unified screenshots + video gallery with keyboard/arrow navigation */}
+                {/* Lightbox: shows every screenshot that was added + the demo video,
+                    each with its own caption/description. */}
                 <AnimatePresence>
                   {lightboxProject && (
                     <motion.div
@@ -1283,8 +1250,8 @@ const Portfolio = ({ slugProp }) => {
                               </p>
                             )}
                           </div>
-                          <button onClick={closeLightbox} className="text-white/70 hover:text-white text-sm">
-                            Close ✕
+                          <button onClick={closeLightbox} className="text-white/70 hover:text-white flex items-center gap-1.5 text-sm">
+                            <X className="w-4 h-4" /> Close
                           </button>
                         </div>
 
@@ -1299,7 +1266,7 @@ const Portfolio = ({ slugProp }) => {
                             >
                               {lightboxMedia[lightboxIndex]?.type === "video" ? (
                                 isVideoFile(lightboxMedia[lightboxIndex].src) ? (
-                                  <video src={lightboxMedia[lightboxIndex].src} controls autoPlay className="w-full rounded-xl max-h-[70vh]" />
+                                  <video src={lightboxMedia[lightboxIndex].src} controls autoPlay className="w-full rounded-xl max-h-[65vh]" />
                                 ) : (
                                   <iframe
                                     src={toEmbedUrl(lightboxMedia[lightboxIndex].src)}
@@ -1312,7 +1279,7 @@ const Portfolio = ({ slugProp }) => {
                                 <img
                                   src={lightboxMedia[lightboxIndex]?.src}
                                   alt={lightboxProject.title}
-                                  className="w-full rounded-xl max-h-[70vh] object-contain bg-black"
+                                  className="w-full rounded-xl max-h-[65vh] object-contain bg-black"
                                 />
                               )}
                             </motion.div>
@@ -1325,25 +1292,27 @@ const Portfolio = ({ slugProp }) => {
                                 className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
                                 aria-label="Previous"
                               >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                                  <path d="M15 18l-6-6 6-6" />
-                                </svg>
+                                <ChevronLeft className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={nextMedia}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
                                 aria-label="Next"
                               >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                                  <path d="M9 18l6-6-6-6" />
-                                </svg>
+                                <ChevronRight className="w-4 h-4" />
                               </button>
                             </>
                           )}
                         </div>
 
+                        {lightboxMedia[lightboxIndex]?.caption && (
+                          <p className="text-white/70 text-sm mt-3 text-center leading-relaxed">
+                            {lightboxMedia[lightboxIndex].caption}
+                          </p>
+                        )}
+
                         {lightboxMedia.length > 1 && (
-                          <div className="flex gap-2 mt-3 overflow-x-auto">
+                          <div className="flex gap-2 mt-4 overflow-x-auto">
                             {lightboxMedia.map((m, mi) => (
                               <button
                                 key={mi}
@@ -1354,9 +1323,7 @@ const Portfolio = ({ slugProp }) => {
                               >
                                 {m.type === "video" ? (
                                   <span className="w-full h-full flex items-center justify-center bg-white/10 text-white">
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                      <path d="M8 5v14l11-7Z" />
-                                    </svg>
+                                    <PlayCircle className="w-5 h-5" />
                                   </span>
                                 ) : (
                                   <img src={m.src} alt="" className="w-full h-full object-cover" />

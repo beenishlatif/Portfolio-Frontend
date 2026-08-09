@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Theme tokens =====
+   Applied via data-theme attribute on <html>.
+   "purple" is the default brand theme. */
+
+:root,
+[data-theme="purple"] {
+  --color-bg: #0f0b1e;
+  --color-surface: #191228;
+  --color-surface-alt: #221a38;
+  --color-primary: #8b5cf6;
+  --color-primary-alt: #a78bfa;
+  --color-accent: #c4b5fd;
+  --color-text: #f4f2ff;
+  --color-text-muted: #a8a0c4;
+  --color-border: #2e2450;
+  --color-glow: rgba(139, 92, 246, 0.35);
+}
+
+[data-theme="dark"] {
+  --color-bg: #0a0a0c;
+  --color-surface: #17171a;
+  --color-surface-alt: #202024;
+  --color-primary: #6366f1;
+  --color-primary-alt: #818cf8;
+  --color-accent: #a5b4fc;
+  --color-text: #f2f2f5;
+  --color-text-muted: #9a9aa5;
+  --color-border: #2a2a30;
+  --color-glow: rgba(99, 102, 241, 0.3);
+}
+
+[data-theme="light"] {
+  --color-bg: #faf9fc;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f2eefa;
+  --color-primary: #7c3aed;
+  --color-primary-alt: #6d28d9;
+  --color-accent: #5b21b6;
+  --color-text: #1c1830;
+  --color-text-muted: #635f78;
+  --color-border: #e4defa;
+  --color-glow: rgba(124, 58, 237, 0.18);
+}
+
+[data-theme="ocean"] {
+  --color-bg: #071a2b;
+  --color-surface: #0f2942;
+  --color-surface-alt: #143454;
+  --color-primary: #06b6d4;
+  --color-primary-alt: #22d3ee;
+  --color-accent: #67e8f9;
+  --color-text: #e3f7fb;
+  --color-text-muted: #7fa8ba;
+  --color-border: #164863;
+  --color-glow: rgba(6, 182, 212, 0.3);
+}
+
+[data-theme="sunset"] {
+  --color-bg: #1f0f1a;
+  --color-surface: #2c1522;
+  --color-surface-alt: #391b2c;
+  --color-primary: #f97316;
+  --color-primary-alt: #fb923c;
+  --color-accent: #fbbf24;
+  --color-text: #fff3e6;
+  --color-text-muted: #cba593;
+  --color-border: #4a2233;
+  --color-glow: rgba(249, 115, 22, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  scroll-behavior: smooth;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+code,
+.mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 8px;
+}

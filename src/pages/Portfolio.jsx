@@ -131,6 +131,9 @@ const Portfolio = ({ slugProp }) => {
     .join("")
     .toUpperCase();
 
+  const topSkills = portfolio.skills?.slice(0, 6) || [];
+  const highlightTeaser = portfolio.about?.highlights?.slice(0, 3) || [];
+
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col">
       {/* Top nav */}
@@ -173,7 +176,7 @@ const Portfolio = ({ slugProp }) => {
       </header>
 
       {/* Active section */}
-      <main className="flex-1 px-6 md:px-10 py-12 max-w-4xl mx-auto w-full">
+      <main className="flex-1 px-6 md:px-10 py-12 max-w-6xl mx-auto w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={active}
@@ -183,139 +186,245 @@ const Portfolio = ({ slugProp }) => {
             transition={{ duration: 0.35, ease: "easeOut" }}
           >
             {active === "hero" && (
-              <div className="text-center py-8 relative">
-                {/* Profile image / avatar with gradient ring */}
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                  className="mx-auto mb-6 w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-primary via-accent to-primaryAlt"
-                >
-                  <div className="w-full h-full rounded-full bg-surface flex items-center justify-center overflow-hidden">
-                    {portfolio.hero.profileImage ? (
-                      <img
-                        src={portfolio.hero.profileImage}
-                        alt={owner.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="font-display text-2xl font-semibold text-primary">
-                        {initials}
-                      </span>
-                    )}
-                  </div>
-                </motion.div>
-
-                {/* Availability badge */}
-                {portfolio.hero.availableForWork && (
-                  <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-surface border border-border text-xs">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                    </span>
-                    Available for work
-                  </div>
-                )}
-
-                <p className="mono text-accent text-sm tracking-widest mb-4">
-                  {portfolio.hero.tagline || "WELCOME"}
-                </p>
-                <h1 className="font-display text-4xl md:text-6xl font-semibold mb-3">
-                  {portfolio.hero.title || owner.name}
-                </h1>
-
-                {/* Typewriter rotating roles */}
-                <p className="mono text-lg md:text-xl text-primary mb-4 h-7">
-                  {displayText}
-                  <span className="animate-pulse">|</span>
-                </p>
-
-                <p className="text-textMuted text-lg max-w-xl mx-auto">
-                  {portfolio.hero.subtitle}
-                </p>
-
-                {portfolio.hero.location && (
-                  <p className="text-textMuted text-sm mt-3 flex items-center justify-center gap-1">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                      <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                      <circle cx="12" cy="10" r="2.5" />
-                    </svg>
-                    {portfolio.hero.location}
-                  </p>
-                )}
-
-                {/* CTA buttons */}
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
-                  {portfolio.hero.resumeLink && (
-                    <a
-                      href={portfolio.hero.resumeLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition"
-                    >
-                      View Resume
-                    </a>
-                  )}
-                  <button
-                    onClick={() => setActive("contact")}
-                    className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition"
-                  >
-                    Let's Talk
-                  </button>
-                </div>
-
-                {/* Social icons */}
-                {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-                  <div className="flex items-center justify-center gap-3 mt-6">
-                    {Object.entries(portfolio.contact.socialLinks || {}).map(
-                      ([key, val]) =>
-                        val && (
-                          <a
-                            key={key}
-                            href={val}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-9 h-9 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
-                          >
-                            {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                          </a>
-                        )
-                    )}
-                  </div>
-                )}
-
-                {/* Stats row */}
-                {(portfolio.hero.stats?.length > 0 || portfolio.hero.yearsOfExperience > 0) && (
-                  <div className="flex flex-wrap items-center justify-center gap-8 mt-12 pt-8 border-t border-border">
-                    {portfolio.hero.yearsOfExperience > 0 && (
-                      <div>
-                        <p className="font-display text-2xl font-semibold text-primary">
-                          {portfolio.hero.yearsOfExperience}+
-                        </p>
-                        <p className="text-textMuted text-xs mono">Years Experience</p>
+              <div className="py-6 md:py-14">
+                <div className="grid md:grid-cols-2 gap-14 items-center">
+                  {/* ===== Left column: text content ===== */}
+                  <div className="text-center md:text-left">
+                    {portfolio.hero.availableForWork && (
+                      <div className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full bg-surface border border-border text-xs">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                        </span>
+                        Available for work
                       </div>
                     )}
-                    {portfolio.hero.stats?.map((s, i) => (
+
+                    <p className="mono text-accent text-sm tracking-widest mb-3">
+                      {portfolio.hero.tagline || "WELCOME TO MY PORTFOLIO"}
+                    </p>
+                    <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-3">
+                      {portfolio.hero.title || owner.name}
+                    </h1>
+
+                    {/* Typewriter rotating roles */}
+                    <p className="mono text-lg md:text-2xl text-primary mb-5 h-8">
+                      {displayText}
+                      <span className="animate-pulse">|</span>
+                    </p>
+
+                    <p className="text-textMuted text-base md:text-lg max-w-lg mx-auto md:mx-0 leading-relaxed">
+                      {portfolio.hero.subtitle}
+                    </p>
+
+                    {/* Quick info pills: location + experience */}
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-5">
+                      {portfolio.hero.location && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                            <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                            <circle cx="12" cy="10" r="2.5" />
+                          </svg>
+                          {portfolio.hero.location}
+                        </span>
+                      )}
+                      {portfolio.hero.yearsOfExperience > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 3" />
+                          </svg>
+                          {portfolio.hero.yearsOfExperience}+ Years Experience
+                        </span>
+                      )}
+                      {portfolio.contact?.email && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                            <rect x="3" y="5" width="18" height="14" rx="2" />
+                            <path d="m3 7 9 6 9-6" />
+                          </svg>
+                          {portfolio.contact.email}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick highlights teaser (pulled from About) */}
+                    {highlightTeaser.length > 0 && (
+                      <ul className="mt-6 space-y-1.5 inline-block text-left">
+                        {highlightTeaser.map((h, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-text">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                              <path d="m5 13 4 4L19 7" />
+                            </svg>
+                            {h}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Top skill chips */}
+                    {topSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-6">
+                        {topSkills.map((s, i) => (
+                          <span key={i} className="mono text-xs px-2.5 py-1 rounded-full bg-surfaceAlt text-accent border border-border">
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* CTA buttons */}
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-8">
+                      {portfolio.hero.resumeLink && (
+                        <a
+                          href={portfolio.hero.resumeLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition"
+                        >
+                          View Resume
+                        </a>
+                      )}
+                      <button
+                        onClick={() => setActive("projects")}
+                        className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition"
+                      >
+                        View Work
+                      </button>
+                      <button
+                        onClick={() => setActive("contact")}
+                        className="px-6 py-3 rounded-lg text-primary hover:underline transition"
+                      >
+                        Let's Talk →
+                      </button>
+                    </div>
+
+                    {/* Social icons */}
+                    {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
+                      <div className="flex items-center justify-center md:justify-start gap-3 mt-7">
+                        {Object.entries(portfolio.contact.socialLinks || {}).map(
+                          ([key, val]) =>
+                            val && (
+                              <a
+                                key={key}
+                                href={val}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-9 h-9 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
+                              >
+                                {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                              </a>
+                            )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ===== Right column: visual / image with floating cards ===== */}
+                  <div className="relative flex justify-center md:justify-end py-10 md:py-0">
+                    {/* decorative glow blobs */}
+                    <div className="absolute -top-8 -left-8 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-8 -right-4 w-56 h-56 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
+
+                    <motion.div
+                      initial={{ scale: 0.85, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.6 }}
+                      className="relative w-64 h-64 md:w-80 md:h-80 rounded-[2rem] p-1.5 bg-gradient-to-tr from-primary via-accent to-primaryAlt"
+                    >
+                      <div className="w-full h-full rounded-[1.6rem] bg-surface overflow-hidden flex items-center justify-center">
+                        {portfolio.hero.profileImage ? (
+                          <img
+                            src={portfolio.hero.profileImage}
+                            alt={owner.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="font-display text-6xl font-semibold text-primary">
+                            {initials}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Floating stat card - top left */}
+                      {portfolio.hero.yearsOfExperience > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.4, duration: 0.5 }}
+                          className="absolute -left-8 top-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                        >
+                          <p className="font-display text-xl font-semibold text-primary">
+                            {portfolio.hero.yearsOfExperience}+
+                          </p>
+                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">Years Exp</p>
+                        </motion.div>
+                      )}
+
+                      {/* Floating stat card - bottom right */}
+                      {portfolio.hero.stats?.[0] && (
+                        <motion.div
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.5, duration: 0.5 }}
+                          className="absolute -right-8 bottom-8 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                        >
+                          <p className="font-display text-xl font-semibold text-primary">
+                            {portfolio.hero.stats[0].value}
+                          </p>
+                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
+                            {portfolio.hero.stats[0].label}
+                          </p>
+                        </motion.div>
+                      )}
+
+                      {/* Floating stat card - top right, second stat */}
+                      {portfolio.hero.stats?.[1] && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.6, duration: 0.5 }}
+                          className="absolute -right-4 -top-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                        >
+                          <p className="font-display text-xl font-semibold text-primary">
+                            {portfolio.hero.stats[1].value}
+                          </p>
+                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
+                            {portfolio.hero.stats[1].label}
+                          </p>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* Full stats bar */}
+                {portfolio.hero.stats?.length > 0 && (
+                  <div className="mt-16 pt-10 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+                    {portfolio.hero.stats.map((s, i) => (
                       <div key={i}>
-                        <p className="font-display text-2xl font-semibold text-primary">{s.value}</p>
-                        <p className="text-textMuted text-xs mono">{s.label}</p>
+                        <p className="font-display text-3xl font-semibold text-primary">{s.value}</p>
+                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {/* Scroll indicator */}
-                <motion.button
-                  onClick={() => setActive("about")}
-                  animate={{ y: [0, 8, 0] }}
-                  transition={{ duration: 1.6, repeat: Infinity }}
-                  className="mt-12 text-textMuted hover:text-primary transition"
-                  aria-label="Scroll to about section"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 mx-auto">
-                    <path d="M12 5v14M5 12l7 7 7-7" />
-                  </svg>
-                </motion.button>
+                <div className="flex justify-center mt-14">
+                  <motion.button
+                    onClick={() => setActive("about")}
+                    animate={{ y: [0, 8, 0] }}
+                    transition={{ duration: 1.6, repeat: Infinity }}
+                    className="text-textMuted hover:text-primary transition flex flex-col items-center gap-1"
+                    aria-label="Scroll to about section"
+                  >
+                    <span className="text-[10px] mono uppercase tracking-widest">Scroll</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                      <path d="M12 5v14M5 12l7 7 7-7" />
+                    </svg>
+                  </motion.button>
+                </div>
               </div>
             )}
 

@@ -496,7 +496,6 @@ const Portfolio = ({ slugProp }) => {
   const services = portfolio.hero?.services || [];
   const whyChooseMe = portfolio.hero?.whyChooseMe || [];
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
-  const skillCategories = ["All", ...Object.keys(skillGroups)];
   const skillCount = portfolio.skills?.length || 0;
   const skillCategoryCount = Object.keys(skillGroups).length;
   const avgSkillLevel = skillCount
@@ -1050,37 +1049,6 @@ const Portfolio = ({ slugProp }) => {
                       <AnimatedStat value={skillCategoryCount} label={`Categor${skillCategoryCount === 1 ? "y" : "ies"}`} />
                       <AnimatedStat value={avgSkillLevel} suffix="%" label="Avg. Proficiency" />
                     </Reveal>
-
-                    {/* Category filter pills — built only from categories present in the skill data */}
-                    {skillCategories.length > 2 && (
-                      <div className="flex flex-wrap gap-2 mt-8">
-                        {skillCategories.map((cat) => (
-                          <button
-                            key={cat}
-                            onClick={() => setSkillFilter(cat)}
-                            className={`relative px-4 py-1.5 text-sm rounded-full border transition-colors ${
-                              skillFilter === cat
-                                ? "text-white border-transparent"
-                                : "text-textMuted border-border hover:text-text hover:border-primary/40"
-                            }`}
-                          >
-                            {skillFilter === cat && (
-                              <motion.span
-                                layoutId="skill-filter-pill"
-                                className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_4px_16px_-4px_var(--color-primary)]"
-                                transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                              />
-                            )}
-                            {cat}
-                            {cat !== "All" && (
-                              <span className={`ml-1.5 mono text-[10px] ${skillFilter === cat ? "text-white/80" : "text-textMuted/70"}`}>
-                                {skillGroups[cat].length}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
 
                     {/* Bento wall — tile size is driven by each skill's own level, so
                         the strongest skills are literally the biggest things on screen */}

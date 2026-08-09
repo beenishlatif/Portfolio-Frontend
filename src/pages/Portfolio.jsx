@@ -284,11 +284,24 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
   );
 };
 
-const isVideoFile = (url = "") => /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
+const isVideoFile = (url = "") => /^data:video\//i.test(url) || /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
 const toEmbedUrl = (url = "") => {
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
   if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
   return url;
+};
+
+// Combines a project's cover image, screenshots, and video into one
+// navigable media array for the lightbox (dedupes the cover image if it
+// also appears in screenshots).
+const getProjectMedia = (p) => {
+  const items = [];
+  if (p.image) items.push({ type: "image", src: p.image });
+  (p.screenshots || []).forEach((src) => {
+    if (src && src !== p.image) items.push({ type: "image", src });
+  });
+  if (p.video) items.push({ type: "video", src: p.video });
+  return items;
 };
 
 // Decorative blurred gradient blobs used behind the hero — purely visual.
@@ -315,6 +328,41 @@ const AuroraBackground = () => (
   </div>
 );
 
+// Subtle 3D tilt-on-hover wrapper for project cards - pointer position
+// drives rotateX/rotateY via motion values for a tasteful, GPU-cheap effect.
+const TiltCard = ({ children, className, delay = 0 }) => {
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    animate(rotateY, px * 7, { duration: 0.3, ease: "easeOut" });
+    animate(rotateX, -py * 7, { duration: 0.3, ease: "easeOut" });
+  };
+
+  const handleMouseLeave = () => {
+    animate(rotateX, 0, { duration: 0.4, ease: "easeOut" });
+    animate(rotateY, 0, { duration: 0.4, ease: "easeOut" });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ rotateX, rotateY, transformPerspective: 1000 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 // slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
 // and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
@@ -332,8 +380,10 @@ const Portfolio = ({ slugProp }) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [lightboxProject, setLightboxProject] = useState(null);
+  const [lightboxMedia, setLightboxMedia] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [skillFilter, setSkillFilter] = useState("All");
+  const [projectFilter, setProjectFilter] = useState("All");
 
   // --- Typewriter effect state (hero section) ---
   const [roleIndex, setRoleIndex] = useState(0);
@@ -401,6 +451,24 @@ const Portfolio = ({ slugProp }) => {
     return () => el.removeEventListener("scroll", onScroll);
   }, [activeSection]);
 
+  // Keyboard navigation for the project lightbox (Esc to close, arrows to
+  // move between images/video within the currently open project).
+  useEffect(() => {
+    if (!lightboxProject) return;
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        setLightboxProject(null);
+        setLightboxMedia([]);
+      } else if (e.key === "ArrowRight") {
+        setLightboxIndex((i) => (lightboxMedia.length ? (i + 1) % lightboxMedia.length : 0));
+      } else if (e.key === "ArrowLeft") {
+        setLightboxIndex((i) => (lightboxMedia.length ? (i - 1 + lightboxMedia.length) % lightboxMedia.length : 0));
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxProject, lightboxMedia]);
+
   // Every time the "page" changes, land at the top of it and close the
   // mobile menu — mirrors a real page navigation instead of a scroll jump.
   const goToSection = (id) => {
@@ -441,10 +509,28 @@ const Portfolio = ({ slugProp }) => {
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
   const visibleSkills = skillFilter === "All" ? portfolio.skills || [] : skillGroups[skillFilter] || [];
 
-  const openLightbox = (project, index = 0) => {
+  const allProjectTechs = Array.from(new Set((portfolio.projects || []).flatMap((p) => p.techStack || [])));
+  const filteredProjects =
+    projectFilter === "All"
+      ? portfolio.projects || []
+      : (portfolio.projects || []).filter((p) => p.techStack?.includes(projectFilter));
+  const spotlightProjects = filteredProjects.filter((p) => p.featured);
+  const otherProjects = filteredProjects.filter((p) => !p.featured);
+
+  const openLightbox = (project, startIndex = 0) => {
+    const media = getProjectMedia(project);
     setLightboxProject(project);
-    setLightboxIndex(index);
+    setLightboxMedia(media);
+    setLightboxIndex(Math.max(0, Math.min(startIndex, media.length - 1)));
   };
+
+  const closeLightbox = () => {
+    setLightboxProject(null);
+    setLightboxMedia([]);
+  };
+
+  const nextMedia = () => setLightboxIndex((i) => (i + 1) % (lightboxMedia.length || 1));
+  const prevMedia = () => setLightboxIndex((i) => (i - 1 + (lightboxMedia.length || 1)) % (lightboxMedia.length || 1));
 
   return (
     <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
@@ -992,147 +1078,297 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "projects" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
+                <AuroraBackground />
+
                 <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Selected Work</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Projects</h2>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Selected Work
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Projects</h2>
+                  <p className="text-textMuted text-sm md:text-base max-w-xl">
+                    A look at what I've built — click any project to explore screenshots and demo videos.
+                  </p>
                 </Reveal>
-                {portfolio.projects.length === 0 && <p className="text-textMuted">No projects added yet.</p>}
-                <div className="grid sm:grid-cols-2 gap-6">
-                  {portfolio.projects.map((p, i) => (
-                    <Reveal
-                      key={i}
-                      delay={i * 0.05}
-                      className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] transition-all group"
-                    >
-                      {p.image && (
-                        <button onClick={() => openLightbox(p, 0)} className="block w-full overflow-hidden">
-                          <img
-                            src={p.image}
-                            alt={p.title}
-                            className="w-full h-44 object-cover group-hover:scale-[1.05] transition duration-500"
-                          />
-                        </button>
-                      )}
-                      <div className="p-5">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-display font-semibold">{p.title}</h3>
-                          {p.featured && (
-                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+
+                {portfolio.projects.length === 0 && <p className="text-textMuted mt-10">No projects added yet.</p>}
+
+                {allProjectTechs.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-8">
+                    {["All", ...allProjectTechs].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setProjectFilter(t)}
+                        className={`mono text-xs px-3.5 py-1.5 rounded-full border transition ${
+                          projectFilter === t
+                            ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                            : "border-border text-textMuted hover:border-primary/50 hover:text-text"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Featured spotlight - larger, side-by-side cards for standout work */}
+                {spotlightProjects.length > 0 && (
+                  <div className="mt-10 space-y-6">
+                    {spotlightProjects.map((p, i) => {
+                      const media = getProjectMedia(p);
+                      return (
+                        <TiltCard
+                          key={`spotlight-${p.title}-${i}`}
+                          delay={i * 0.06}
+                          className="relative bg-surface border border-primary/30 rounded-3xl overflow-hidden grid md:grid-cols-2 hover:border-primary/60 hover:shadow-[0_24px_50px_-24px_var(--color-primary)] transition-[border-color,box-shadow] group"
+                        >
+                          <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20 blur-[90px] group-hover:bg-primary/30 transition-colors" />
+                          {p.image && (
+                            <button onClick={() => openLightbox(p, 0)} className="relative block w-full h-56 md:h-full overflow-hidden">
+                              <img src={p.image} alt={p.title} className="w-full h-full object-cover group-hover:scale-[1.06] transition duration-500" />
+                              {media.length > 1 && (
+                                <span className="absolute bottom-3 right-3 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur">
+                                  {media.length} items
+                                </span>
+                              )}
+                            </button>
+                          )}
+                          <div className="relative p-6 md:p-8 flex flex-col justify-center">
+                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide w-fit mb-3">
                               Featured
                             </span>
-                          )}
-                        </div>
-                        <p className="text-textMuted text-sm mb-3">{p.description}</p>
+                            <h3 className="font-display text-xl md:text-2xl font-semibold mb-2">{p.title}</h3>
+                            <p className="text-textMuted text-sm leading-relaxed mb-4">{p.description}</p>
+                            <div className="flex flex-wrap gap-1.5 mb-5">
+                              {p.techStack?.map((t, idx) => (
+                                <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-4 text-sm">
+                              {p.liveLink && (
+                                <a href={p.liveLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium">
+                                  Live Demo ↗
+                                </a>
+                              )}
+                              {p.githubLink && (
+                                <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-textMuted hover:text-primary transition">
+                                  GitHub
+                                </a>
+                              )}
+                              {media.length > 0 && (
+                                <button onClick={() => openLightbox(p, 0)} className="text-textMuted hover:text-primary transition">
+                                  View Gallery
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </TiltCard>
+                      );
+                    })}
+                  </div>
+                )}
 
-                        {(p.screenshots?.length > 0 || p.video) && (
-                          <div className="flex gap-2 mb-3">
-                            {p.screenshots?.slice(0, 3).map((src, si) => (
-                              <button
-                                key={si}
-                                onClick={() => openLightbox(p, si)}
-                                className="w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
-                              >
-                                <img src={src} alt={`${p.title} screenshot ${si + 1}`} className="w-full h-full object-cover" />
-                              </button>
-                            ))}
-                            {p.video && (
-                              <button
-                                onClick={() => openLightbox(p, -1)}
-                                className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center bg-surfaceAlt text-primary"
-                                aria-label="Play demo video"
-                              >
-                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                  <path d="M8 5v14l11-7Z" />
-                                </svg>
+                {/* Rest of the projects */}
+                {otherProjects.length > 0 && (
+                  <div className="mt-12">
+                    {spotlightProjects.length > 0 && (
+                      <p className="mono text-xs text-textMuted uppercase tracking-widest mb-5">More Projects</p>
+                    )}
+                    <div className="grid sm:grid-cols-2 gap-6">
+                      {otherProjects.map((p, i) => {
+                        const media = getProjectMedia(p);
+                        return (
+                          <TiltCard
+                            key={`${p.title}-${i}`}
+                            delay={i * 0.05}
+                            className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] group"
+                          >
+                            {p.image && (
+                              <button onClick={() => openLightbox(p, 0)} className="relative block w-full overflow-hidden">
+                                <img
+                                  src={p.image}
+                                  alt={p.title}
+                                  className="w-full h-44 object-cover group-hover:scale-[1.05] transition duration-500"
+                                />
+                                {media.length > 1 && (
+                                  <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-full backdrop-blur">
+                                    {media.length} items
+                                  </span>
+                                )}
                               </button>
                             )}
-                          </div>
-                        )}
+                            <div className="p-5">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-display font-semibold">{p.title}</h3>
+                              </div>
+                              <p className="text-textMuted text-sm mb-3">{p.description}</p>
 
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {p.techStack?.map((t, idx) => (
-                            <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex gap-4 text-sm">
-                          {p.liveLink && (
-                            <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                              Live
-                            </a>
-                          )}
-                          {p.githubLink && (
-                            <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                              GitHub
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </Reveal>
-                  ))}
-                </div>
+                              {media.length > 1 && (
+                                <div className="flex gap-2 mb-3">
+                                  {media.slice(1, 4).map((m, mi) => (
+                                    <button
+                                      key={mi}
+                                      onClick={() => openLightbox(p, mi + 1)}
+                                      className="relative w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
+                                    >
+                                      {m.type === "video" ? (
+                                        <span className="w-full h-full flex items-center justify-center bg-surfaceAlt text-primary">
+                                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                            <path d="M8 5v14l11-7Z" />
+                                          </svg>
+                                        </span>
+                                      ) : (
+                                        <img src={m.src} alt={`${p.title} media ${mi + 2}`} className="w-full h-full object-cover" />
+                                      )}
+                                    </button>
+                                  ))}
+                                  {media.length > 4 && (
+                                    <button
+                                      onClick={() => openLightbox(p, 4)}
+                                      className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center mono text-xs text-textMuted bg-surfaceAlt"
+                                    >
+                                      +{media.length - 4}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
 
-                {/* Lightbox: screenshots gallery + demo video */}
-                {lightboxProject && (
-                  <div
-                    className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
-                    onClick={() => setLightboxProject(null)}
-                  >
-                    <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
-                        <button onClick={() => setLightboxProject(null)} className="text-white/70 hover:text-white text-sm">
-                          Close ✕
-                        </button>
-                      </div>
-
-                      {lightboxIndex === -1 && lightboxProject.video ? (
-                        isVideoFile(lightboxProject.video) ? (
-                          <video src={lightboxProject.video} controls autoPlay className="w-full rounded-xl max-h-[75vh]" />
-                        ) : (
-                          <iframe
-                            src={toEmbedUrl(lightboxProject.video)}
-                            title="Project demo"
-                            allow="autoplay; fullscreen"
-                            className="w-full aspect-video rounded-xl"
-                          />
-                        )
-                      ) : (
-                        <img
-                          src={lightboxProject.screenshots?.[lightboxIndex] || lightboxProject.image}
-                          alt={lightboxProject.title}
-                          className="w-full rounded-xl max-h-[75vh] object-contain bg-black"
-                        />
-                      )}
-
-                      {(lightboxProject.screenshots?.length > 0 || lightboxProject.video) && (
-                        <div className="flex gap-2 mt-3 overflow-x-auto">
-                          {lightboxProject.screenshots?.map((src, si) => (
-                            <button
-                              key={si}
-                              onClick={() => setLightboxIndex(si)}
-                              className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-white/20"
-                            >
-                              <img src={src} alt="" className="w-full h-full object-cover" />
-                            </button>
-                          ))}
-                          {lightboxProject.video && (
-                            <button
-                              onClick={() => setLightboxIndex(-1)}
-                              className="w-16 h-16 shrink-0 rounded-lg border border-white/20 flex items-center justify-center bg-white/10 text-white"
-                            >
-                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                <path d="M8 5v14l11-7Z" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {p.techStack?.map((t, idx) => (
+                                  <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex gap-4 text-sm">
+                                {p.liveLink && (
+                                  <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                    Live
+                                  </a>
+                                )}
+                                {p.githubLink && (
+                                  <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                    GitHub
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </TiltCard>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
+
+                {/* Lightbox: unified screenshots + video gallery with keyboard/arrow navigation */}
+                <AnimatePresence>
+                  {lightboxProject && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 md:p-6"
+                      onClick={closeLightbox}
+                    >
+                      <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
+                            {lightboxMedia.length > 0 && (
+                              <p className="mono text-[11px] text-white/50 mt-0.5">
+                                {lightboxIndex + 1} / {lightboxMedia.length}
+                              </p>
+                            )}
+                          </div>
+                          <button onClick={closeLightbox} className="text-white/70 hover:text-white text-sm">
+                            Close ✕
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={lightboxIndex}
+                              initial={{ opacity: 0, x: 24 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -24 }}
+                              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                            >
+                              {lightboxMedia[lightboxIndex]?.type === "video" ? (
+                                isVideoFile(lightboxMedia[lightboxIndex].src) ? (
+                                  <video src={lightboxMedia[lightboxIndex].src} controls autoPlay className="w-full rounded-xl max-h-[70vh]" />
+                                ) : (
+                                  <iframe
+                                    src={toEmbedUrl(lightboxMedia[lightboxIndex].src)}
+                                    title="Project demo"
+                                    allow="autoplay; fullscreen"
+                                    className="w-full aspect-video rounded-xl"
+                                  />
+                                )
+                              ) : (
+                                <img
+                                  src={lightboxMedia[lightboxIndex]?.src}
+                                  alt={lightboxProject.title}
+                                  className="w-full rounded-xl max-h-[70vh] object-contain bg-black"
+                                />
+                              )}
+                            </motion.div>
+                          </AnimatePresence>
+
+                          {lightboxMedia.length > 1 && (
+                            <>
+                              <button
+                                onClick={prevMedia}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
+                                aria-label="Previous"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                  <path d="M15 18l-6-6 6-6" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={nextMedia}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
+                                aria-label="Next"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                  <path d="M9 18l6-6-6-6" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        {lightboxMedia.length > 1 && (
+                          <div className="flex gap-2 mt-3 overflow-x-auto">
+                            {lightboxMedia.map((m, mi) => (
+                              <button
+                                key={mi}
+                                onClick={() => setLightboxIndex(mi)}
+                                className={`w-16 h-16 shrink-0 rounded-lg overflow-hidden border transition ${
+                                  mi === lightboxIndex ? "border-primary ring-2 ring-primary/40" : "border-white/20"
+                                }`}
+                              >
+                                {m.type === "video" ? (
+                                  <span className="w-full h-full flex items-center justify-center bg-white/10 text-white">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                      <path d="M8 5v14l11-7Z" />
+                                    </svg>
+                                  </span>
+                                ) : (
+                                  <img src={m.src} alt="" className="w-full h-full object-cover" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </section>
             )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { AnimatePresence, motion, animate, useMotionValue, useInView } from "framer-motion";
+import { AnimatePresence, motion, animate, useMotionValue } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
 
@@ -181,34 +181,6 @@ const skillLevelMeta = (level = 0) => {
   return { label: "Familiar", className: "bg-surfaceAlt text-textMuted" };
 };
 
-// Small count-up number used by the skills stat strip — animates from 0 to
-// `value` once it scrolls into view. Purely presentational, no invented data.
-const AnimatedStat = ({ value, label, suffix = "" }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(0, value, {
-      duration: 1.3,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setDisplay(Math.round(v)),
-    });
-    return () => controls.stop();
-  }, [inView, value]);
-
-  return (
-    <div ref={ref} className="text-center">
-      <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent tabular-nums">
-        {display}
-        {suffix}
-      </p>
-      <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{label}</p>
-    </div>
-  );
-};
-
 // A skill's proficiency decides how much room it gets — this is the
 // signature idea of the redesigned Skills page: the layout itself is the
 // data visualization, not a decoration bolted onto uniform cards.
@@ -224,35 +196,15 @@ const TIER_SPAN = {
   compact: "",
 };
 
-// Shared count-up + fill-bar hook used by every tile size below.
-const useSkillReveal = (level, delay) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.4 });
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(0, level, {
-      duration: 1,
-      delay,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setDisplay(Math.round(v)),
-    });
-    return () => controls.stop();
-  }, [inView, level, delay]);
-  return { ref, inView, display };
-};
-
 const BentoSkillTile = ({ skill, delay = 0 }) => {
   const level = skill.level ?? 0;
   const tier = skillTier(level);
   const meta = skillLevelMeta(level);
-  const { ref, display } = useSkillReveal(level, delay);
   const category = skill.category || "General";
 
   if (tier === "hero") {
     return (
       <motion.div
-        ref={ref}
         initial={{ opacity: 0, scale: 0.94 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, amount: 0.3 }}
@@ -266,13 +218,7 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
         </div>
         <div className="relative">
           <h4 className="font-display text-2xl md:text-3xl font-bold mb-3">{skill.name}</h4>
-          <div className="flex items-end gap-1">
-            <span className="mono text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent tabular-nums">
-              {display}
-            </span>
-            <span className="mono text-xl text-textMuted mb-1">%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-surfaceAlt/70 overflow-hidden mt-4">
+          <div className="h-1.5 rounded-full bg-surfaceAlt/70 overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: `${level}%` }}
@@ -289,7 +235,6 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
   if (tier === "tall") {
     return (
       <motion.div
-        ref={ref}
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
@@ -299,8 +244,7 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
         <span className="mono text-[10px] uppercase tracking-widest text-textMuted">{category}</span>
         <div>
           <h4 className="font-semibold text-sm mb-2 truncate">{skill.name}</h4>
-          <span className="mono text-2xl font-bold text-primary tabular-nums">{display}%</span>
-          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden mt-2.5">
+          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: `${level}%` }}
@@ -317,7 +261,6 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
 
   return (
     <motion.div
-      ref={ref}
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}
@@ -326,7 +269,7 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-semibold text-xs truncate">{skill.name}</h4>
-        <span className="mono text-[10px] text-textMuted shrink-0 tabular-nums">{display}%</span>
+        <span className={`mono text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${meta.className}`}>{meta.label}</span>
       </div>
       <div className="h-1 rounded-full bg-surfaceAlt overflow-hidden mt-2">
         <motion.div
@@ -496,11 +439,6 @@ const Portfolio = ({ slugProp }) => {
   const services = portfolio.hero?.services || [];
   const whyChooseMe = portfolio.hero?.whyChooseMe || [];
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
-  const skillCount = portfolio.skills?.length || 0;
-  const skillCategoryCount = Object.keys(skillGroups).length;
-  const avgSkillLevel = skillCount
-    ? Math.round(portfolio.skills.reduce((sum, s) => sum + (s.level || 0), 0) / skillCount)
-    : 0;
   const visibleSkills = skillFilter === "All" ? portfolio.skills || [] : skillGroups[skillFilter] || [];
 
   const openLightbox = (project, index = 0) => {
@@ -1032,24 +970,6 @@ const Portfolio = ({ slugProp }) => {
 
                 {portfolio.skills.length > 0 && (
                   <>
-                    {/* Stat strip — real numbers derived from the skill data, counting up on view */}
-                    <Reveal
-                      delay={0.05}
-                      className="relative mt-10 grid grid-cols-3 gap-4 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl px-6 py-7 overflow-hidden"
-                    >
-                      <div
-                        className="pointer-events-none absolute inset-0 opacity-[0.06]"
-                        style={{
-                          backgroundImage:
-                            "linear-gradient(var(--color-text) 1px, transparent 1px), linear-gradient(90deg, var(--color-text) 1px, transparent 1px)",
-                          backgroundSize: "28px 28px",
-                        }}
-                      />
-                      <AnimatedStat value={skillCount} label={`Skill${skillCount === 1 ? "" : "s"}`} />
-                      <AnimatedStat value={skillCategoryCount} label={`Categor${skillCategoryCount === 1 ? "y" : "ies"}`} />
-                      <AnimatedStat value={avgSkillLevel} suffix="%" label="Avg. Proficiency" />
-                    </Reveal>
-
                     {/* Bento wall — tile size is driven by each skill's own level, so
                         the strongest skills are literally the biggest things on screen */}
                     <AnimatePresence mode="wait">

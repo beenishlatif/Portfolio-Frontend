@@ -174,6 +174,62 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
   );
 };
 
+// Circular animated progress ring used by the premium skill cards.
+const SkillRing = ({ level = 0, size = 60, stroke = 5, delay = 0 }) => {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} stroke="var(--color-border)" strokeWidth={stroke} fill="none" />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="url(#skillRingGradient)"
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          whileInView={{ strokeDashoffset: circumference - (level / 100) * circumference }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay, ease: "easeOut" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="mono text-[11px] font-semibold text-text">{level}%</span>
+      </div>
+    </div>
+  );
+};
+
+const skillLevelMeta = (level = 0) => {
+  if (level >= 90) return { label: "Expert", className: "bg-primary/15 text-primary" };
+  if (level >= 75) return { label: "Advanced", className: "bg-accent/15 text-accent" };
+  if (level >= 50) return { label: "Intermediate", className: "bg-surfaceAlt text-textMuted" };
+  return { label: "Familiar", className: "bg-surfaceAlt text-textMuted" };
+};
+
+const SkillCard = ({ skill, delay = 0 }) => {
+  const meta = skillLevelMeta(skill.level ?? 0);
+  return (
+    <Reveal
+      delay={delay}
+      className="group relative bg-surface border border-border rounded-2xl p-5 overflow-hidden hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-accent/0 group-hover:from-primary/5 group-hover:to-accent/5 transition-colors duration-300" />
+      <div className="relative flex items-center gap-4">
+        <SkillRing level={skill.level ?? 0} delay={delay} />
+        <div className="min-w-0">
+          <h4 className="font-semibold text-sm truncate">{skill.name}</h4>
+          <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 ${meta.className}`}>{meta.label}</span>
+        </div>
+      </div>
+    </Reveal>
+  );
+};
+
 const isVideoFile = (url = "") => /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
 const toEmbedUrl = (url = "") => {
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
@@ -223,6 +279,7 @@ const Portfolio = ({ slugProp }) => {
 
   const [lightboxProject, setLightboxProject] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [skillFilter, setSkillFilter] = useState("All");
 
   // --- Typewriter effect state (hero section) ---
   const [roleIndex, setRoleIndex] = useState(0);
@@ -328,6 +385,17 @@ const Portfolio = ({ slugProp }) => {
   const services = portfolio.hero?.services || [];
   const whyChooseMe = portfolio.hero?.whyChooseMe || [];
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
+  const skillCategories = ["All", ...Object.keys(skillGroups)];
+  const visibleSkillGroups =
+    skillFilter === "All" ? Object.entries(skillGroups) : Object.entries(skillGroups).filter(([cat]) => cat === skillFilter);
+  const skillStats = {
+    total: portfolio.skills?.length || 0,
+    categories: Object.keys(skillGroups).length,
+    avgLevel: portfolio.skills?.length
+      ? Math.round(portfolio.skills.reduce((sum, s) => sum + (s.level || 0), 0) / portfolio.skills.length)
+      : 0,
+    expert: portfolio.skills?.filter((s) => (s.level || 0) >= 90).length || 0,
+  };
 
   const openLightbox = (project, index = 0) => {
     setLightboxProject(project);
@@ -841,42 +909,99 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "skills" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
-                <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">What I Work With</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Skills</h2>
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                {/* shared gradient definition for every skill ring in this page */}
+                <svg width="0" height="0" className="absolute">
+                  <defs>
+                    <linearGradient id="skillRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="var(--color-primary)" />
+                      <stop offset="100%" stopColor="var(--color-accent)" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                <div className="pointer-events-none absolute -top-10 left-0 w-72 h-72 rounded-full bg-accent/10 blur-[100px] -z-10" />
+
+                <Reveal className="max-w-2xl">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> What I Work With
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Skills</h2>
+                  <p className="text-textMuted text-sm md:text-base">
+                    Tools and technologies I use to design, build and ship real products.
+                  </p>
                 </Reveal>
-                {portfolio.skills.length === 0 && <p className="text-textMuted">No skills added yet.</p>}
-                <div className="grid md:grid-cols-2 gap-8">
-                  {Object.entries(skillGroups).map(([category, items], gi) => (
-                    <Reveal
-                      key={category}
-                      delay={gi * 0.05}
-                      className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/40 transition"
-                    >
-                      <h3 className="mono text-xs text-primary uppercase tracking-widest mb-5">{category}</h3>
-                      <div className="space-y-5">
-                        {items.map((s, i) => (
-                          <div key={i}>
-                            <div className="flex justify-between items-baseline mb-1.5">
-                              <span className="text-sm font-medium">{s.name}</span>
-                              <span className="text-textMuted mono text-xs">{s.level}%</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-surfaceAlt overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                whileInView={{ width: `${s.level}%` }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.8, delay: 0.1 + i * 0.06, ease: "easeOut" }}
-                                className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+
+                {portfolio.skills.length === 0 && <p className="text-textMuted mt-10">No skills added yet.</p>}
+
+                {portfolio.skills.length > 0 && (
+                  <>
+                    {/* Stats strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-10">
+                      {[
+                        { label: "Total Skills", value: skillStats.total },
+                        { label: "Categories", value: skillStats.categories },
+                        { label: "Avg. Proficiency", value: `${skillStats.avgLevel}%` },
+                        { label: "Expert Level", value: skillStats.expert },
+                      ].map((stat, i) => (
+                        <Reveal
+                          key={stat.label}
+                          delay={i * 0.05}
+                          className="bg-surface border border-border rounded-2xl px-4 py-5 text-center hover:border-primary/40 transition"
+                        >
+                          <p className="font-display text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                            {stat.value}
+                          </p>
+                          <p className="text-textMuted text-[10px] mono mt-1 uppercase tracking-wide">{stat.label}</p>
+                        </Reveal>
+                      ))}
+                    </div>
+
+                    {/* Category filter pills */}
+                    {skillCategories.length > 2 && (
+                      <div className="flex flex-wrap gap-2 mt-10">
+                        {skillCategories.map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setSkillFilter(cat)}
+                            className={`relative px-4 py-1.5 text-sm rounded-full border transition-colors ${
+                              skillFilter === cat
+                                ? "text-white border-transparent"
+                                : "text-textMuted border-border hover:text-text hover:border-primary/40"
+                            }`}
+                          >
+                            {skillFilter === cat && (
+                              <motion.span
+                                layoutId="skill-filter-pill"
+                                className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_4px_16px_-4px_var(--color-primary)]"
+                                transition={{ type: "spring", stiffness: 350, damping: 30 }}
                               />
-                            </div>
-                          </div>
+                            )}
+                            {cat}
+                          </button>
                         ))}
                       </div>
-                    </Reveal>
-                  ))}
-                </div>
+                    )}
+
+                    {/* Skill cards, grouped by category */}
+                    <div key={skillFilter} className="space-y-10 mt-10">
+                      {visibleSkillGroups.map(([category, items], gi) => (
+                        <div key={category}>
+                          <div className="flex items-center gap-3 mb-5">
+                            <h3 className="font-display text-sm uppercase tracking-widest text-primary">{category}</h3>
+                            <span className="flex-1 h-px bg-border" />
+                            <span className="mono text-[10px] text-textMuted">{items.length} skill{items.length > 1 ? "s" : ""}</span>
+                          </div>
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {items.map((s, i) => (
+                              <SkillCard key={s.name + i} skill={s} delay={gi * 0.04 + i * 0.05} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </section>
             )}
 

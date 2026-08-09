@@ -95,6 +95,11 @@ const AdminDashboard = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  // --- Upload state (keyed by project index) for gallery-based media pickers ---
+  const [uploadingImage, setUploadingImage] = useState({});
+  const [uploadingScreenshots, setUploadingScreenshots] = useState({});
+  const [uploadingVideo, setUploadingVideo] = useState({});
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -214,12 +219,80 @@ const AdminDashboard = () => {
   // --- Multi-line string list helper (used for achievements, screenshots) ---
   const linesToArray = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
+  // --- Gallery upload helpers for project media (cover image / screenshots / video) ---
+  // NOTE: adjust the endpoint path and the `data.url` response key below to match
+  // whatever your backend's upload route actually returns.
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { data } = await api.post("/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data.url;
+  };
+
+  const handleCoverImageSelect = async (index, file) => {
+    if (!file) return;
+    setUploadingImage((prev) => ({ ...prev, [index]: true }));
+    try {
+      const url = await uploadFile(file);
+      updateListItem("projects", index, "image", url);
+    } catch (err) {
+      setMessage("Image upload failed.");
+    } finally {
+      setUploadingImage((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const handleScreenshotsSelect = async (index, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setUploadingScreenshots((prev) => ({ ...prev, [index]: true }));
+    try {
+      const urls = await Promise.all(files.map((f) => uploadFile(f)));
+      setForm((prev) => {
+        const list = [...prev.projects];
+        list[index] = { ...list[index], screenshots: [...(list[index].screenshots || []), ...urls] };
+        return { ...prev, projects: list };
+      });
+    } catch (err) {
+      setMessage("Screenshot upload failed.");
+    } finally {
+      setUploadingScreenshots((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const removeScreenshot = (index, screenshotIndex) => {
+    setForm((prev) => {
+      const list = [...prev.projects];
+      const shots = [...(list[index].screenshots || [])];
+      shots.splice(screenshotIndex, 1);
+      list[index] = { ...list[index], screenshots: shots };
+      return { ...prev, projects: list };
+    });
+  };
+
+  const handleVideoSelect = async (index, file) => {
+    if (!file) return;
+    setUploadingVideo((prev) => ({ ...prev, [index]: true }));
+    try {
+      const url = await uploadFile(file);
+      updateListItem("projects", index, "video", url);
+    } catch (err) {
+      setMessage("Video upload failed.");
+    } finally {
+      setUploadingVideo((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
   const inputClass =
     "w-full bg-surfaceAlt border border-border rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition";
   const labelClass = "text-xs text-textMuted mono block mb-1.5 mt-4 tracking-wide";
   const cardClass = "bg-surface/70 backdrop-blur border border-border rounded-2xl p-6 shadow-sm mb-6";
   const cardTitleClass = "font-display text-xs font-semibold tracking-widest text-primary uppercase mb-1";
   const cardHintClass = "text-xs text-textMuted mb-5";
+  const galleryBtnClass =
+    "text-xs px-3 py-1.5 rounded-md border border-border cursor-pointer hover:bg-surfaceAlt transition inline-block";
 
   if (loading) {
     return (
@@ -456,18 +529,92 @@ const AdminDashboard = () => {
                     <input placeholder="Title" className={inputClass} value={p.title} onChange={(e) => updateListItem("projects", i, "title", e.target.value)} />
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("projects", i, "description", e.target.value)} />
-                    <label className={labelClass}>Cover Image URL</label>
-                    <input className={inputClass} value={p.image || ""} onChange={(e) => updateListItem("projects", i, "image", e.target.value)} />
-                    <label className={labelClass}>Screenshots (one URL per line)</label>
-                    <textarea
-                      rows={3}
-                      className={inputClass}
-                      placeholder={"https://.../screenshot1.png\nhttps://.../screenshot2.png"}
-                      value={(p.screenshots || []).join("\n")}
-                      onChange={(e) => updateListItem("projects", i, "screenshots", linesToArray(e.target.value))}
-                    />
-                    <label className={labelClass}>Demo Video URL (YouTube/Loom/mp4)</label>
-                    <input className={inputClass} placeholder="https://..." value={p.video || ""} onChange={(e) => updateListItem("projects", i, "video", e.target.value)} />
+
+                    {/* Cover Image - gallery picker */}
+                    <label className={labelClass}>Cover Image</label>
+                    <div className="flex items-center gap-4 mt-1">
+                      {p.image ? (
+                        <img src={p.image} alt="Cover" className="w-20 h-20 rounded-lg object-cover border border-border" />
+                      ) : (
+                        <div className="w-20 h-20 rounded-lg border border-dashed border-border flex items-center justify-center text-textMuted text-[10px] mono text-center px-1">
+                          No image
+                        </div>
+                      )}
+                      <div>
+                        <label className={galleryBtnClass}>
+                          {uploadingImage[i] ? "Uploading..." : "Choose from Gallery"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={!!uploadingImage[i]}
+                            onChange={(e) => handleCoverImageSelect(i, e.target.files?.[0])}
+                          />
+                        </label>
+                        {p.image && (
+                          <button onClick={() => updateListItem("projects", i, "image", "")} className="text-xs text-red-400 ml-3 hover:underline">
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Screenshots - gallery picker (multiple) */}
+                    <label className={labelClass}>Screenshots</label>
+                    <div className="flex flex-wrap gap-3 mt-1 mb-2">
+                      {(p.screenshots || []).map((src, si) => (
+                        <div key={si} className="relative group">
+                          <img src={src} alt={`Screenshot ${si + 1}`} className="w-16 h-16 rounded-lg object-cover border border-border" />
+                          <button
+                            onClick={() => removeScreenshot(i, si)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <label className={galleryBtnClass}>
+                      {uploadingScreenshots[i] ? "Uploading..." : "+ Add Screenshots from Gallery"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={!!uploadingScreenshots[i]}
+                        onChange={(e) => handleScreenshotsSelect(i, e.target.files)}
+                      />
+                    </label>
+
+                    {/* Demo Video - gallery picker */}
+                    <label className={labelClass}>Demo Video</label>
+                    <div className="flex items-center gap-4 mt-1">
+                      {p.video ? (
+                        <video src={p.video} className="w-28 h-16 rounded-lg object-cover border border-border" muted />
+                      ) : (
+                        <div className="w-28 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-textMuted text-[10px] mono text-center px-1">
+                          No video
+                        </div>
+                      )}
+                      <div>
+                        <label className={galleryBtnClass}>
+                          {uploadingVideo[i] ? "Uploading..." : "Choose from Gallery"}
+                          <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            disabled={!!uploadingVideo[i]}
+                            onChange={(e) => handleVideoSelect(i, e.target.files?.[0])}
+                          />
+                        </label>
+                        {p.video && (
+                          <button onClick={() => updateListItem("projects", i, "video", "")} className="text-xs text-red-400 ml-3 hover:underline">
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     <label className={labelClass}>Tech Stack (comma separated)</label>
                     <input
                       className={inputClass}

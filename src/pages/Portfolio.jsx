@@ -37,8 +37,89 @@ const SOCIAL_ICONS = {
   ),
 };
 
-// slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
-// and at "/" for the site's main/primary portfolio (see Home.jsx).
+const CodeVisual = ({ owner, portfolio }) => {
+  const roles = portfolio.hero.roles?.length ? portfolio.hero.roles : [portfolio.hero.title || "Developer"];
+  const stackSource = portfolio.techStack?.length ? portfolio.techStack : (portfolio.skills || []).map((s) => s.name);
+  const stack = stackSource.slice(0, 4);
+
+  const lines = [
+    [{ c: "kw", v: "const " }, { c: "var", v: "developer" }, { c: "p", v: " = {" }],
+    [{ c: "key", v: "  name" }, { c: "p", v: ": " }, { c: "str", v: `"${owner.name}"` }, { c: "p", v: "," }],
+    [{ c: "key", v: "  roles" }, { c: "p", v: ": [" }, { c: "str", v: roles.map((r) => `"${r}"`).join(", ") }, { c: "p", v: "]," }],
+    [{ c: "key", v: "  stack" }, { c: "p", v: ": [" }, { c: "str", v: stack.map((t) => `"${t}"`).join(", ") }, { c: "p", v: "]," }],
+    [{ c: "key", v: "  available" }, { c: "p", v: ": " }, { c: "bool", v: String(!!portfolio.hero.availableForWork) }],
+    [{ c: "p", v: "};" }],
+  ];
+
+  const colorMap = {
+    kw: "text-pink-400",
+    var: "text-sky-300",
+    p: "text-white/50",
+    key: "text-primary",
+    str: "text-emerald-400",
+    bool: "text-amber-300",
+  };
+
+  return (
+    <div className="w-full max-w-sm rounded-2xl border border-border bg-[#0c0e13] shadow-2xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/[0.03]">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+        <span className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+        <span className="ml-3 mono text-[11px] text-white/40">developer.ts</span>
+      </div>
+      <div className="p-5 font-mono text-[12.5px] leading-relaxed">
+        {lines.map((line, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15 + i * 0.18, duration: 0.35 }}
+            className="whitespace-pre"
+          >
+            {line.map((tok, j) => (
+              <span key={j} className={colorMap[tok.c]}>{tok.v}</span>
+            ))}
+          </motion.div>
+        ))}
+        <motion.span
+          className="inline-block w-2 h-4 bg-primary ml-0.5 align-middle"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const TechMarquee = ({ items }) => {
+  if (!items || items.length === 0) return null;
+  const loop = [...items, ...items];
+  return (
+    <div className="relative overflow-hidden py-6 border-y border-border">
+      <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
+      <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
+      <div className="flex gap-10 w-max animate-marquee">
+        {loop.map((t, i) => (
+          <span key={i} className="mono text-sm text-textMuted whitespace-nowrap flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+            {t}
+          </span>
+        ))}
+      </div>
+      <style>{`
+        @keyframes marqueeScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marqueeScroll 22s linear infinite;
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const Portfolio = ({ slugProp }) => {
   const { slug: slugParam } = useParams();
   const slug = slugProp || slugParam;
@@ -48,7 +129,6 @@ const Portfolio = ({ slugProp }) => {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState("hero");
 
-  // --- Typewriter effect state (hero section) ---
   const [roleIndex, setRoleIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -68,10 +148,8 @@ const Portfolio = ({ slugProp }) => {
       }
     };
     fetchPortfolio();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Typewriter loop - cycles through hero.roles (falls back to hero.title)
   useEffect(() => {
     if (!data) return;
     const roles =
@@ -133,32 +211,70 @@ const Portfolio = ({ slugProp }) => {
 
   const topSkills = portfolio.skills?.slice(0, 6) || [];
   const highlightTeaser = portfolio.about?.highlights?.slice(0, 3) || [];
+  const marqueeItems = portfolio.techStack?.length ? portfolio.techStack : topSkills.map((s) => s.name);
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col">
-      {/* Top nav */}
-      <header className="sticky top-0 z-10 backdrop-blur bg-bg/80 border-b border-border">
-        <div className="flex items-center justify-between px-6 md:px-10 py-4">
-          <span className="font-display font-semibold">
+      <header className="sticky top-0 z-20 backdrop-blur bg-bg/80 border-b border-border">
+        <div className="flex items-center justify-between px-6 md:px-10 py-4 gap-4">
+          <button onClick={() => setActive("hero")} className="font-display font-semibold text-lg shrink-0">
             {owner.name}
             <span className="text-primary">.</span>
-          </span>
+          </button>
 
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className="bg-surface border border-border text-text text-sm rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary"
-          >
-            {THEMES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
+          <nav className="hidden lg:flex items-center gap-1 bg-surface/60 border border-border rounded-full p-1">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setActive(s.id)}
+                className={`relative px-4 py-1.5 text-sm rounded-full transition ${
+                  active === s.id ? "text-white" : "text-textMuted hover:text-text"
+                }`}
+              >
+                {active === s.id && (
+                  <motion.span
+                    layoutId="nav-pill"
+                    className="absolute inset-0 bg-primary rounded-full -z-10"
+                    transition={{ type: "spring", duration: 0.5 }}
+                  />
+                )}
+                {s.label}
+              </button>
             ))}
-          </select>
+          </nav>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {portfolio.hero.resumeLink && (
+              <a
+                href={portfolio.hero.resumeLink}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition mono"
+              >
+                Resume ↗
+              </a>
+            )}
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="bg-surface border border-border text-text text-sm rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary"
+            >
+              {THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setActive("contact")}
+              className="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition"
+            >
+              Hire Me
+            </button>
+          </div>
         </div>
 
-        {/* Section tabs - only one section is shown at a time */}
-        <nav className="flex gap-1 overflow-x-auto px-6 md:px-10 pb-3">
+        <nav className="flex lg:hidden gap-1 overflow-x-auto px-6 pb-3">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
@@ -175,7 +291,6 @@ const Portfolio = ({ slugProp }) => {
         </nav>
       </header>
 
-      {/* Active section */}
       <main className="flex-1 px-6 md:px-10 py-12 max-w-6xl mx-auto w-full">
         <AnimatePresence mode="wait">
           <motion.div
@@ -188,7 +303,6 @@ const Portfolio = ({ slugProp }) => {
             {active === "hero" && (
               <div className="py-6 md:py-14">
                 <div className="grid md:grid-cols-2 gap-14 items-center">
-                  {/* ===== Left column: text content ===== */}
                   <div className="text-center md:text-left">
                     {portfolio.hero.availableForWork && (
                       <div className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full bg-surface border border-border text-xs">
@@ -196,18 +310,18 @@ const Portfolio = ({ slugProp }) => {
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                         </span>
-                        Available for work
+                        Available for Freelance
                       </div>
                     )}
 
                     <p className="mono text-accent text-sm tracking-widest mb-3">
                       {portfolio.hero.tagline || "WELCOME TO MY PORTFOLIO"}
                     </p>
+
                     <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-3">
                       {portfolio.hero.title || owner.name}
                     </h1>
 
-                    {/* Typewriter rotating roles */}
                     <p className="mono text-lg md:text-2xl text-primary mb-5 h-8">
                       {displayText}
                       <span className="animate-pulse">|</span>
@@ -217,7 +331,6 @@ const Portfolio = ({ slugProp }) => {
                       {portfolio.hero.subtitle}
                     </p>
 
-                    {/* Quick info pills: location + experience */}
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-5">
                       {portfolio.hero.location && (
                         <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
@@ -248,7 +361,6 @@ const Portfolio = ({ slugProp }) => {
                       )}
                     </div>
 
-                    {/* Quick highlights teaser (pulled from About) */}
                     {highlightTeaser.length > 0 && (
                       <ul className="mt-6 space-y-1.5 inline-block text-left">
                         {highlightTeaser.map((h, i) => (
@@ -262,7 +374,6 @@ const Portfolio = ({ slugProp }) => {
                       </ul>
                     )}
 
-                    {/* Top skill chips */}
                     {topSkills.length > 0 && (
                       <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-6">
                         {topSkills.map((s, i) => (
@@ -273,33 +384,34 @@ const Portfolio = ({ slugProp }) => {
                       </div>
                     )}
 
-                    {/* CTA buttons */}
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-8">
+                      <button
+                        onClick={() => setActive("projects")}
+                        className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition font-medium"
+                      >
+                        View Projects
+                      </button>
+                      <button
+                        onClick={() => setActive("contact")}
+                        className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition font-medium"
+                      >
+                        Hire Me
+                      </button>
                       {portfolio.hero.resumeLink && (
                         <a
                           href={portfolio.hero.resumeLink}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition"
+                          className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
                         >
-                          View Resume
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
+                          </svg>
+                          Download Resume
                         </a>
                       )}
-                      <button
-                        onClick={() => setActive("projects")}
-                        className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition"
-                      >
-                        View Work
-                      </button>
-                      <button
-                        onClick={() => setActive("contact")}
-                        className="px-6 py-3 rounded-lg text-primary hover:underline transition"
-                      >
-                        Let's Talk →
-                      </button>
                     </div>
 
-                    {/* Social icons */}
                     {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
                       <div className="flex items-center justify-center md:justify-start gap-3 mt-7">
                         {Object.entries(portfolio.contact.socialLinks || {}).map(
@@ -320,54 +432,40 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
 
-                  {/* ===== Right column: visual / image with floating cards ===== */}
                   <div className="relative flex justify-center md:justify-end py-10 md:py-0">
-                    {/* decorative glow blobs */}
                     <div className="absolute -top-8 -left-8 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-8 -right-4 w-56 h-56 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
 
                     <motion.div
-                      initial={{ scale: 0.85, opacity: 0 }}
+                      initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.6 }}
-                      className="relative w-64 h-64 md:w-80 md:h-80 rounded-[2rem] p-1.5 bg-gradient-to-tr from-primary via-accent to-primaryAlt"
+                      className="relative"
                     >
-                      <div className="w-full h-full rounded-[1.6rem] bg-surface overflow-hidden flex items-center justify-center">
-                        {portfolio.hero.profileImage ? (
-                          <img
-                            src={portfolio.hero.profileImage}
-                            alt={owner.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="font-display text-6xl font-semibold text-primary">
-                            {initials}
-                          </span>
-                        )}
-                      </div>
+                      <CodeVisual owner={owner} portfolio={portfolio} />
 
-                      {/* Floating stat card - top left */}
-                      {portfolio.hero.yearsOfExperience > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.4, duration: 0.5 }}
-                          className="absolute -left-8 top-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
-                        >
-                          <p className="font-display text-xl font-semibold text-primary">
-                            {portfolio.hero.yearsOfExperience}+
-                          </p>
-                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">Years Exp</p>
-                        </motion.div>
-                      )}
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="absolute -top-5 -left-5 flex items-center gap-2 bg-bg border border-border rounded-full pl-1.5 pr-3 py-1.5 shadow-lg"
+                      >
+                        <div className="w-7 h-7 rounded-full overflow-hidden bg-surfaceAlt flex items-center justify-center shrink-0">
+                          {portfolio.hero.profileImage ? (
+                            <img src={portfolio.hero.profileImage} alt={owner.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="font-display text-[10px] font-semibold text-primary">{initials}</span>
+                          )}
+                        </div>
+                        <span className="text-xs font-medium">{owner.name}</span>
+                      </motion.div>
 
-                      {/* Floating stat card - bottom right */}
                       {portfolio.hero.stats?.[0] && (
                         <motion.div
                           initial={{ opacity: 0, x: 10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.5, duration: 0.5 }}
-                          className="absolute -right-8 bottom-8 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                          className="absolute -right-8 top-10 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
                         >
                           <p className="font-display text-xl font-semibold text-primary">
                             {portfolio.hero.stats[0].value}
@@ -378,13 +476,12 @@ const Portfolio = ({ slugProp }) => {
                         </motion.div>
                       )}
 
-                      {/* Floating stat card - top right, second stat */}
                       {portfolio.hero.stats?.[1] && (
                         <motion.div
-                          initial={{ opacity: 0, y: -10 }}
+                          initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.6, duration: 0.5 }}
-                          className="absolute -right-4 -top-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                          className="absolute -right-6 -bottom-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
                         >
                           <p className="font-display text-xl font-semibold text-primary">
                             {portfolio.hero.stats[1].value}
@@ -398,9 +495,14 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 </div>
 
-                {/* Full stats bar */}
+                {marqueeItems.length > 0 && (
+                  <div className="mt-16">
+                    <TechMarquee items={marqueeItems} />
+                  </div>
+                )}
+
                 {portfolio.hero.stats?.length > 0 && (
-                  <div className="mt-16 pt-10 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+                  <div className="mt-10 pt-10 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
                     {portfolio.hero.stats.map((s, i) => (
                       <div key={i}>
                         <p className="font-display text-3xl font-semibold text-primary">{s.value}</p>
@@ -410,7 +512,6 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 )}
 
-                {/* Scroll indicator */}
                 <div className="flex justify-center mt-14">
                   <motion.button
                     onClick={() => setActive("about")}
@@ -479,30 +580,42 @@ const Portfolio = ({ slugProp }) => {
                 )}
                 <div className="grid sm:grid-cols-2 gap-5">
                   {portfolio.projects.map((p, i) => (
-                    <div key={i} className="bg-surface border border-border rounded-lg p-5">
-                      <h3 className="font-display font-semibold mb-1">{p.title}</h3>
-                      <p className="text-textMuted text-sm mb-3">{p.description}</p>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {p.techStack?.map((t, idx) => (
-                          <span
-                            key={idx}
-                            className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-4 text-sm">
-                        {p.liveLink && (
-                          <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                            Live
-                          </a>
-                        )}
-                        {p.githubLink && (
-                          <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                            GitHub
-                          </a>
-                        )}
+                    <div key={i} className="bg-surface border border-border rounded-lg overflow-hidden">
+                      {p.image && (
+                        <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
+                      )}
+                      <div className="p-5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-display font-semibold">{p.title}</h3>
+                          {p.featured && (
+                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-textMuted text-sm mb-3">{p.description}</p>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {p.techStack?.map((t, idx) => (
+                            <span
+                              key={idx}
+                              className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex gap-4 text-sm">
+                          {p.liveLink && (
+                            <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              Live
+                            </a>
+                          )}
+                          {p.githubLink && (
+                            <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              GitHub
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

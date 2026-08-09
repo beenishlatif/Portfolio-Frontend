@@ -12,6 +12,12 @@ const TABS = [
   { id: "projects", label: "Projects" },
   { id: "experience", label: "Experience" },
   { id: "education", label: "Education" },
+  { id: "techstack", label: "Tech Stack" },
+  { id: "services", label: "Services" },
+  { id: "whyme", label: "Why Choose Me" },
+  { id: "process", label: "Process" },
+  { id: "github", label: "GitHub & Focus" },
+  { id: "testimonials", label: "Testimonials" },
   { id: "contact", label: "Contact" },
   { id: "theme", label: "Theme" },
 ];
@@ -34,6 +40,13 @@ const emptyPortfolio = {
   projects: [],
   experience: [],
   education: [],
+  techStack: [],
+  services: [],
+  whyChooseMe: [],
+  process: [],
+  github: { username: "" },
+  currentFocus: "",
+  testimonials: [],
   contact: { email: "", phone: "", location: "", socialLinks: { github: "", linkedin: "", twitter: "", instagram: "" } },
   defaultTheme: "purple",
 };
@@ -56,6 +69,7 @@ const AdminDashboard = () => {
           ...emptyPortfolio,
           ...data,
           hero: { ...emptyPortfolio.hero, ...data.hero },
+          github: { ...emptyPortfolio.github, ...data.github },
         });
       } catch (err) {
         setMessage("Could not load your portfolio data.");
@@ -123,7 +137,6 @@ const AdminDashboard = () => {
       hero: { ...prev.hero, stats: [...(prev.hero.stats || []), { label: "", value: "" }] },
     }));
   };
-
   const updateHeroStat = (index, field, value) => {
     setForm((prev) => {
       const stats = [...(prev.hero.stats || [])];
@@ -131,7 +144,6 @@ const AdminDashboard = () => {
       return { ...prev, hero: { ...prev.hero, stats } };
     });
   };
-
   const removeHeroStat = (index) => {
     setForm((prev) => {
       const stats = [...(prev.hero.stats || [])];
@@ -140,16 +152,11 @@ const AdminDashboard = () => {
     });
   };
 
-  // Base (still used by about/skills/projects/experience/education/contact tabs)
   const inputClass =
     "w-full bg-surfaceAlt border border-border rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition";
   const labelClass = "text-xs text-textMuted mono block mb-1.5 mt-4 tracking-wide";
-
-  // Luxury card styling - used for the Hero tab
-  const cardClass =
-    "bg-surface/70 backdrop-blur border border-border rounded-2xl p-6 shadow-sm mb-6";
-  const cardTitleClass =
-    "font-display text-xs font-semibold tracking-widest text-primary uppercase mb-1 flex items-center gap-2";
+  const cardClass = "bg-surface/70 backdrop-blur border border-border rounded-2xl p-6 shadow-sm mb-6";
+  const cardTitleClass = "font-display text-xs font-semibold tracking-widest text-primary uppercase mb-1";
   const cardHintClass = "text-xs text-textMuted mb-5";
 
   if (loading) {
@@ -163,8 +170,8 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-bg text-text flex">
       {/* Sidebar */}
-      <aside className="w-56 border-r border-border p-6 hidden md:flex md:flex-col justify-between">
-        <div>
+      <aside className="w-56 border-r border-border p-6 hidden md:flex md:flex-col justify-between shrink-0">
+        <div className="overflow-y-auto">
           <p className="font-display font-semibold mb-1">{admin?.name}</p>
           <a
             href={`/${admin?.slug}`}
@@ -220,133 +227,58 @@ const AdminDashboard = () => {
           >
             {tab === "hero" && (
               <div>
-                {/* Identity card */}
                 <div className={cardClass}>
-                  <p className={cardTitleClass}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                      <circle cx="12" cy="8" r="4" />
-                      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" />
-                    </svg>
-                    Identity
-                  </p>
+                  <p className={cardTitleClass}>Identity</p>
                   <p className={cardHintClass}>How you're introduced at the top of your site.</p>
-
                   <label className={labelClass}>Title / Name</label>
                   <input className={inputClass} value={form.hero.title} onChange={(e) => updateField("hero", "title", e.target.value)} />
-
                   <label className={labelClass}>Subtitle</label>
                   <input className={inputClass} value={form.hero.subtitle} onChange={(e) => updateField("hero", "subtitle", e.target.value)} />
-
                   <label className={labelClass}>Tagline</label>
                   <input className={inputClass} value={form.hero.tagline} onChange={(e) => updateField("hero", "tagline", e.target.value)} />
-
                   <label className={labelClass}>Profile Image URL</label>
                   <input className={inputClass} value={form.hero.profileImage} onChange={(e) => updateField("hero", "profileImage", e.target.value)} />
-
                   <label className={labelClass}>Resume Link</label>
                   <input className={inputClass} value={form.hero.resumeLink} onChange={(e) => updateField("hero", "resumeLink", e.target.value)} />
                 </div>
 
-                {/* Availability & Location card */}
                 <div className={cardClass}>
-                  <p className={cardTitleClass}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                      <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                      <circle cx="12" cy="10" r="2.5" />
-                    </svg>
-                    Availability & Location
-                  </p>
+                  <p className={cardTitleClass}>Availability & Location</p>
                   <p className={cardHintClass}>Shown as quick-info pills right under your name.</p>
-
                   <label className={labelClass}>Location</label>
-                  <input
-                    className={inputClass}
-                    placeholder="e.g. Lahore, Pakistan"
-                    value={form.hero.location}
-                    onChange={(e) => updateField("hero", "location", e.target.value)}
-                  />
-
+                  <input className={inputClass} placeholder="e.g. Lahore, Pakistan" value={form.hero.location} onChange={(e) => updateField("hero", "location", e.target.value)} />
                   <label className={labelClass}>Years of Experience</label>
-                  <input
-                    type="number"
-                    min={0}
-                    className={inputClass}
-                    value={form.hero.yearsOfExperience}
-                    onChange={(e) => updateField("hero", "yearsOfExperience", Number(e.target.value))}
-                  />
-
+                  <input type="number" min={0} className={inputClass} value={form.hero.yearsOfExperience} onChange={(e) => updateField("hero", "yearsOfExperience", Number(e.target.value))} />
                   <label className="flex items-center gap-2 mt-5 text-sm">
-                    <input
-                      type="checkbox"
-                      className="accent-primary w-4 h-4"
-                      checked={form.hero.availableForWork}
-                      onChange={(e) => updateField("hero", "availableForWork", e.target.checked)}
-                    />
-                    Show "Available for work" badge
+                    <input type="checkbox" className="accent-primary w-4 h-4" checked={form.hero.availableForWork} onChange={(e) => updateField("hero", "availableForWork", e.target.checked)} />
+                    Show "Available for Freelance" badge
                   </label>
                 </div>
 
-                {/* Rotating roles card */}
                 <div className={cardClass}>
-                  <p className={cardTitleClass}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                      <path d="M21 12a9 9 0 1 1-3-6.7M21 4v6h-6" />
-                    </svg>
-                    Rotating Roles
-                  </p>
+                  <p className={cardTitleClass}>Rotating Roles</p>
                   <p className={cardHintClass}>Typewriter effect cycles through these, one at a time.</p>
-
                   <input
                     className={inputClass}
-                    placeholder="Full Stack Developer, UI/UX Designer, Freelancer"
+                    placeholder="Full Stack Developer, React Developer, MERN Developer"
                     value={form.hero.roles?.join(", ") || ""}
-                    onChange={(e) =>
-                      updateField(
-                        "hero",
-                        "roles",
-                        e.target.value.split(",").map((r) => r.trim()).filter(Boolean)
-                      )
-                    }
+                    onChange={(e) => updateField("hero", "roles", e.target.value.split(",").map((r) => r.trim()).filter(Boolean))}
                   />
                 </div>
 
-                {/* Stats card */}
                 <div className={cardClass}>
-                  <p className={cardTitleClass}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                      <path d="M3 20h18M6 20V10M12 20V4M18 20v-7" />
-                    </svg>
-                    Stats
-                  </p>
-                  <p className={cardHintClass}>Numbers that float beside your photo and appear in the stats bar (e.g. Projects Done, Happy Clients).</p>
-
+                  <p className={cardTitleClass}>Stats</p>
+                  <p className={cardHintClass}>Numbers shown beside your photo and in the stats bar (e.g. Projects Done, Happy Clients).</p>
                   {(form.hero.stats || []).map((s, i) => (
                     <div key={i} className="bg-bg/60 border border-border rounded-xl p-3.5 mb-3 grid grid-cols-2 gap-3">
-                      <input
-                        placeholder="Value (e.g. 50+)"
-                        className={inputClass}
-                        value={s.value}
-                        onChange={(e) => updateHeroStat(i, "value", e.target.value)}
-                      />
+                      <input placeholder="Value (e.g. 50+)" className={inputClass} value={s.value} onChange={(e) => updateHeroStat(i, "value", e.target.value)} />
                       <div>
-                        <input
-                          placeholder="Label (e.g. Projects Done)"
-                          className={inputClass}
-                          value={s.label}
-                          onChange={(e) => updateHeroStat(i, "label", e.target.value)}
-                        />
-                        <button onClick={() => removeHeroStat(i)} className="text-xs text-red-400 mt-2 hover:underline">
-                          Remove
-                        </button>
+                        <input placeholder="Label (e.g. Projects Done)" className={inputClass} value={s.label} onChange={(e) => updateHeroStat(i, "label", e.target.value)} />
+                        <button onClick={() => removeHeroStat(i)} className="text-xs text-red-400 mt-2 hover:underline">Remove</button>
                       </div>
                     </div>
                   ))}
-                  <button
-                    onClick={addHeroStat}
-                    className="text-sm text-primary hover:underline font-medium"
-                  >
-                    + Add Stat
-                  </button>
+                  <button onClick={addHeroStat} className="text-sm text-primary hover:underline font-medium">+ Add Stat</button>
                 </div>
               </div>
             )}
@@ -382,6 +314,8 @@ const AdminDashboard = () => {
                     <input placeholder="Title" className={inputClass} value={p.title} onChange={(e) => updateListItem("projects", i, "title", e.target.value)} />
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("projects", i, "description", e.target.value)} />
+                    <label className={labelClass}>Image URL</label>
+                    <input className={inputClass} value={p.image || ""} onChange={(e) => updateListItem("projects", i, "image", e.target.value)} />
                     <label className={labelClass}>Tech Stack (comma separated)</label>
                     <input
                       className={inputClass}
@@ -392,10 +326,14 @@ const AdminDashboard = () => {
                       <input placeholder="Live link" className={inputClass} value={p.liveLink} onChange={(e) => updateListItem("projects", i, "liveLink", e.target.value)} />
                       <input placeholder="GitHub link" className={inputClass} value={p.githubLink} onChange={(e) => updateListItem("projects", i, "githubLink", e.target.value)} />
                     </div>
+                    <label className="flex items-center gap-2 mt-4 text-sm">
+                      <input type="checkbox" className="accent-primary w-4 h-4" checked={!!p.featured} onChange={(e) => updateListItem("projects", i, "featured", e.target.checked)} />
+                      Mark as Featured (shown on homepage)
+                    </label>
                     <button onClick={() => removeListItem("projects", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
                   </div>
                 ))}
-                <button onClick={() => addListItem("projects", { title: "", description: "", techStack: [], liveLink: "", githubLink: "", featured: false })} className="text-sm text-primary hover:underline">+ Add Project</button>
+                <button onClick={() => addListItem("projects", { title: "", description: "", image: "", techStack: [], liveLink: "", githubLink: "", featured: false })} className="text-sm text-primary hover:underline">+ Add Project</button>
               </div>
             )}
 
@@ -435,6 +373,104 @@ const AdminDashboard = () => {
               </div>
             )}
 
+            {tab === "techstack" && (
+              <div className={cardClass}>
+                <p className={cardTitleClass}>Tech Stack Marquee</p>
+                <p className={cardHintClass}>Scrolling strip of technologies shown right under the hero.</p>
+                <input
+                  className={inputClass}
+                  placeholder="React, Node.js, MongoDB, Express, Tailwind CSS"
+                  value={form.techStack?.join(", ") || ""}
+                  onChange={(e) => setForm((prev) => ({ ...prev, techStack: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) }))}
+                />
+              </div>
+            )}
+
+            {tab === "services" && (
+              <div>
+                {form.services.map((s, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
+                    <input placeholder="Service title (e.g. Web Development)" className={inputClass} value={s.title} onChange={(e) => updateListItem("services", i, "title", e.target.value)} />
+                    <label className={labelClass}>Description</label>
+                    <textarea rows={2} className={inputClass} value={s.description} onChange={(e) => updateListItem("services", i, "description", e.target.value)} />
+                    <button onClick={() => removeListItem("services", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                  </div>
+                ))}
+                <button onClick={() => addListItem("services", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Service</button>
+              </div>
+            )}
+
+            {tab === "whyme" && (
+              <div>
+                {form.whyChooseMe.map((w, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
+                    <input placeholder="Title (e.g. Clean Code)" className={inputClass} value={w.title} onChange={(e) => updateListItem("whyChooseMe", i, "title", e.target.value)} />
+                    <label className={labelClass}>Description</label>
+                    <textarea rows={2} className={inputClass} value={w.description} onChange={(e) => updateListItem("whyChooseMe", i, "description", e.target.value)} />
+                    <button onClick={() => removeListItem("whyChooseMe", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                  </div>
+                ))}
+                <button onClick={() => addListItem("whyChooseMe", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Point</button>
+              </div>
+            )}
+
+            {tab === "process" && (
+              <div>
+                {form.process.map((p, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
+                    <p className="mono text-xs text-textMuted mb-2">Step {i + 1}</p>
+                    <input placeholder="Title (e.g. Discovery & Planning)" className={inputClass} value={p.title} onChange={(e) => updateListItem("process", i, "title", e.target.value)} />
+                    <label className={labelClass}>Description</label>
+                    <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("process", i, "description", e.target.value)} />
+                    <button onClick={() => removeListItem("process", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                  </div>
+                ))}
+                <button onClick={() => addListItem("process", { title: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Step</button>
+              </div>
+            )}
+
+            {tab === "github" && (
+              <div>
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>GitHub Activity</p>
+                  <p className={cardHintClass}>Pulls your real public repo count, followers, and contribution graph.</p>
+                  <label className={labelClass}>GitHub Username</label>
+                  <input className={inputClass} placeholder="e.g. octocat" value={form.github?.username || ""} onChange={(e) => updateField("github", "username", e.target.value)} />
+                </div>
+                <div className={cardClass}>
+                  <p className={cardTitleClass}>Current Focus</p>
+                  <p className={cardHintClass}>One line about what you're currently building or learning.</p>
+                  <textarea rows={2} className={inputClass} value={form.currentFocus} onChange={(e) => setForm((prev) => ({ ...prev, currentFocus: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {tab === "testimonials" && (
+              <div>
+                <p className="text-xs text-textMuted mb-4">Only testimonials marked "Approved" will be shown publicly — add real ones only.</p>
+                {form.testimonials.map((t, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-lg p-4 mb-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <input placeholder="Name" className={inputClass} value={t.name} onChange={(e) => updateListItem("testimonials", i, "name", e.target.value)} />
+                      <input placeholder="Role" className={inputClass} value={t.role} onChange={(e) => updateListItem("testimonials", i, "role", e.target.value)} />
+                    </div>
+                    <label className={labelClass}>Company</label>
+                    <input className={inputClass} value={t.company} onChange={(e) => updateListItem("testimonials", i, "company", e.target.value)} />
+                    <label className={labelClass}>Quote</label>
+                    <textarea rows={2} className={inputClass} value={t.quote} onChange={(e) => updateListItem("testimonials", i, "quote", e.target.value)} />
+                    <label className={labelClass}>Avatar URL</label>
+                    <input className={inputClass} value={t.avatar} onChange={(e) => updateListItem("testimonials", i, "avatar", e.target.value)} />
+                    <label className="flex items-center gap-2 mt-4 text-sm">
+                      <input type="checkbox" className="accent-primary w-4 h-4" checked={!!t.approved} onChange={(e) => updateListItem("testimonials", i, "approved", e.target.checked)} />
+                      Approved (show on public site)
+                    </label>
+                    <button onClick={() => removeListItem("testimonials", i)} className="text-xs text-red-400 mt-3 hover:underline">Remove</button>
+                  </div>
+                ))}
+                <button onClick={() => addListItem("testimonials", { name: "", role: "", company: "", quote: "", avatar: "", approved: false })} className="text-sm text-primary hover:underline">+ Add Testimonial</button>
+              </div>
+            )}
+
             {tab === "contact" && (
               <div>
                 <label className={labelClass}>Email</label>
@@ -443,7 +479,6 @@ const AdminDashboard = () => {
                 <input className={inputClass} value={form.contact.phone} onChange={(e) => updateField("contact", "phone", e.target.value)} />
                 <label className={labelClass}>Location</label>
                 <input className={inputClass} value={form.contact.location} onChange={(e) => updateField("contact", "location", e.target.value)} />
-
                 <p className="mono text-xs text-textMuted mt-6 mb-2">Social Links</p>
                 {["github", "linkedin", "twitter", "instagram"].map((key) => (
                   <div key={key}>
@@ -456,9 +491,7 @@ const AdminDashboard = () => {
 
             {tab === "theme" && (
               <div>
-                <p className="text-textMuted text-sm mb-4">
-                  Choose the default theme visitors will see on your portfolio.
-                </p>
+                <p className="text-textMuted text-sm mb-4">Choose the default theme visitors will see on your portfolio.</p>
                 <div className="grid grid-cols-5 gap-3">
                   {THEMES.map((t) => (
                     <button

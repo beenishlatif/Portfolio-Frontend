@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
 
@@ -65,12 +65,12 @@ const TechMarquee = ({ items }) => {
   );
 };
 
-const Reveal = ({ children, className }) => (
+const Reveal = ({ children, className, delay = 0 }) => (
   <motion.div
     initial={{ opacity: 0, y: 24 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true, amount: 0.2 }}
-    transition={{ duration: 0.5, ease: "easeOut" }}
+    transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
     className={className}
   >
     {children}
@@ -96,6 +96,30 @@ const toEmbedUrl = (url = "") => {
   return url;
 };
 
+// Decorative blurred gradient blobs used behind the hero — purely visual.
+const AuroraBackground = () => (
+  <div className="pointer-events-none absolute inset-0 overflow-hidden -z-10">
+    <motion.div
+      animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+      transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute -top-32 -left-32 w-[28rem] h-[28rem] rounded-full bg-primary/25 blur-[110px]"
+    />
+    <motion.div
+      animate={{ x: [0, -30, 0], y: [0, 40, 0] }}
+      transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute top-1/3 -right-40 w-[26rem] h-[26rem] rounded-full bg-accent/25 blur-[110px]"
+    />
+    <div
+      className="absolute inset-0 opacity-[0.035]"
+      style={{
+        backgroundImage:
+          "linear-gradient(var(--color-text) 1px, transparent 1px), linear-gradient(90deg, var(--color-text) 1px, transparent 1px)",
+        backgroundSize: "42px 42px",
+      }}
+    />
+  </div>
+);
+
 // slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
 // and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
@@ -105,7 +129,13 @@ const Portfolio = ({ slugProp }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [active, setActive] = useState("hero");
+
+  // "Pages" are switched by click instead of scrolled-to — each nav item
+  // is treated as its own page rather than an anchor on one long scroll.
+  const [activeSection, setActiveSection] = useState("hero");
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   const [lightboxProject, setLightboxProject] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -114,7 +144,7 @@ const Portfolio = ({ slugProp }) => {
   const [displayText, setDisplayText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const observerRef = useRef(null);
+  const mainRef = useRef(null);
 
   useEffect(() => {
     const fetchPortfolio = async () => {
@@ -166,35 +196,23 @@ const Portfolio = ({ slugProp }) => {
     return () => clearTimeout(timeout);
   }, [displayText, isDeleting, roleIndex, data]);
 
-  // Scroll-spy: highlight the nav item for whichever section is in view,
-  // and let nav clicks smooth-scroll to that section.
+  // Subtle navbar elevation once the current "page" has been scrolled.
   useEffect(() => {
-    if (!data) return;
+    const el = mainRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollTop > 8);
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [activeSection]);
 
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActive(entry.target.id);
-          }
-        });
-      },
-      { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
-    );
-
-    SECTIONS.forEach((s) => {
-      const el = document.getElementById(s.id);
-      if (el) observerRef.current.observe(el);
+  // Every time the "page" changes, land at the top of it and close the
+  // mobile menu — mirrors a real page navigation instead of a scroll jump.
+  const goToSection = (id) => {
+    setActiveSection(id);
+    setMobileNavOpen(false);
+    requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, behavior: "instant" in document.documentElement.style ? "instant" : "auto" });
     });
-
-    return () => observerRef.current && observerRef.current.disconnect();
-  }, [data]);
-
-  const scrollToSection = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (loading) {
@@ -232,30 +250,44 @@ const Portfolio = ({ slugProp }) => {
   };
 
   return (
-    <div className="min-h-screen bg-bg text-text flex flex-col">
+    <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
       {/* ===== Premium Navbar ===== */}
-      <header className="sticky top-0 z-20 backdrop-blur bg-bg/80 border-b border-border">
+      <header
+        className={`sticky top-0 z-30 border-b transition-all duration-300 ${
+          scrolled
+            ? "bg-bg/90 backdrop-blur-xl border-border shadow-[0_8px_30px_-15px_rgba(0,0,0,0.4)]"
+            : "bg-bg/60 backdrop-blur-md border-transparent"
+        }`}
+      >
         <div className="flex items-center justify-between px-6 md:px-10 py-4 gap-4">
-          <button onClick={() => scrollToSection("hero")} className="font-display font-semibold text-lg shrink-0">
-            {owner.name}
-            <span className="text-primary">.</span>
+          <button
+            onClick={() => goToSection("hero")}
+            className="group flex items-center gap-2 font-display font-semibold text-lg shrink-0"
+          >
+            <span className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent text-white text-sm shadow-[0_4px_18px_-4px_var(--color-primary)] group-hover:scale-105 transition-transform">
+              {owner.name?.[0]?.toUpperCase() || "•"}
+            </span>
+            <span>
+              {owner.name}
+              <span className="text-primary">.</span>
+            </span>
           </button>
 
-          {/* Desktop pill nav - scrolls to section, highlights on scroll */}
-          <nav className="hidden lg:flex items-center gap-1 bg-surface/60 border border-border rounded-full p-1">
+          {/* Desktop pill nav - each item is its own "page", switched on click */}
+          <nav className="hidden lg:flex items-center gap-1 bg-surface/70 border border-border rounded-full p-1 shadow-inner">
             {SECTIONS.map((s) => (
               <button
                 key={s.id}
-                onClick={() => scrollToSection(s.id)}
-                className={`relative px-4 py-1.5 text-sm rounded-full transition ${
-                  active === s.id ? "text-white" : "text-textMuted hover:text-text"
+                onClick={() => goToSection(s.id)}
+                className={`relative px-4 py-1.5 text-sm rounded-full transition-colors ${
+                  activeSection === s.id ? "text-white" : "text-textMuted hover:text-text"
                 }`}
               >
-                {active === s.id && (
+                {activeSection === s.id && (
                   <motion.span
                     layoutId="nav-pill"
-                    className="absolute inset-0 bg-primary rounded-full -z-10"
-                    transition={{ type: "spring", duration: 0.5 }}
+                    className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_4px_16px_-4px_var(--color-primary)]"
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />
                 )}
                 {s.label}
@@ -269,7 +301,7 @@ const Portfolio = ({ slugProp }) => {
                 href={portfolio.hero.githubLink}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition"
+                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-textMuted hover:text-primary hover:border-primary transition"
                 aria-label="GitHub"
               >
                 {SOCIAL_ICONS.github}
@@ -286,8 +318,8 @@ const Portfolio = ({ slugProp }) => {
               </a>
             )}
 
-            {/* Premium theme switcher - swatch dots instead of a plain <select> */}
-            <div className="flex items-center gap-1 bg-surface border border-border rounded-full px-1.5 py-1">
+            {/* Premium theme switcher - swatch dots */}
+            <div className="hidden sm:flex items-center gap-1 bg-surface border border-border rounded-full px-1.5 py-1">
               {THEMES.map((t) => (
                 <button
                   key={t.id}
@@ -295,7 +327,7 @@ const Portfolio = ({ slugProp }) => {
                   onClick={() => setTheme(t.id)}
                   aria-label={`Switch to ${t.label} theme`}
                   className={`w-4 h-4 rounded-full border transition ${
-                    theme === t.id ? "border-primary scale-125" : "border-transparent hover:scale-110"
+                    theme === t.id ? "border-primary scale-125 ring-2 ring-primary/30" : "border-transparent hover:scale-110"
                   }`}
                   style={{ background: t.swatch || "var(--color-primary)" }}
                 />
@@ -303,563 +335,635 @@ const Portfolio = ({ slugProp }) => {
             </div>
 
             <button
-              onClick={() => scrollToSection("contact")}
-              className="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition"
+              onClick={() => goToSection("contact")}
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_6px_20px_-6px_var(--color-primary)] hover:shadow-[0_8px_24px_-4px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
             >
               Hire Me
+            </button>
+
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setMobileNavOpen((v) => !v)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full border border-border text-text"
+              aria-label="Toggle navigation"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                {mobileNavOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Mobile section tabs - same scroll behaviour */}
-        <nav className="flex lg:hidden gap-1 overflow-x-auto px-6 pb-3">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => scrollToSection(s.id)}
-              className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition ${
-                active === s.id
-                  ? "bg-primary text-white"
-                  : "text-textMuted hover:text-text border border-border"
-              }`}
+        {/* Mobile page list */}
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.nav
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="lg:hidden overflow-hidden px-6 pb-4"
             >
-              {s.label}
-            </button>
-          ))}
-        </nav>
+              <div className="flex flex-col gap-1 bg-surface border border-border rounded-2xl p-2">
+                {SECTIONS.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => goToSection(s.id)}
+                    className={`text-left px-4 py-2.5 rounded-xl text-sm transition ${
+                      activeSection === s.id
+                        ? "bg-gradient-to-r from-primary to-accent text-white"
+                        : "text-textMuted hover:text-text hover:bg-surfaceAlt"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* ===== All sections render together, one after another ===== */}
-      <main className="flex-1 w-full">
-        {/* ---------- HERO (single column, centered - no photo, no code box) ---------- */}
-        <section id="hero" className="scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-3xl mx-auto w-full text-center">
-          {portfolio.hero.availableForWork && (
-            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-surface border border-border text-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-              </span>
-              Available for Freelance
-            </div>
-          )}
+      {/* ===== Only the active "page" is mounted — a real page-switch feel ===== */}
+      <main ref={mainRef} className="flex-1 w-full overflow-y-auto">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {activeSection === "hero" && (
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-3xl mx-auto w-full text-center">
+                <AuroraBackground />
 
-          <p className="mono text-accent text-sm tracking-widest mb-4">
-            {portfolio.hero.tagline || "WELCOME TO MY PORTFOLIO"}
-          </p>
-
-          <h1 className="font-display text-4xl md:text-6xl font-semibold leading-tight mb-4">
-            {portfolio.hero.title || owner.name}
-          </h1>
-
-          <p className="mono text-lg md:text-2xl text-primary mb-6 h-8">
-            {displayText}
-            <span className="animate-pulse">|</span>
-          </p>
-
-          <p className="text-textMuted text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            {portfolio.hero.subtitle}
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-            {portfolio.hero.location && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                  <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                  <circle cx="12" cy="10" r="2.5" />
-                </svg>
-                {portfolio.hero.location}
-              </span>
-            )}
-            {portfolio.hero.yearsOfExperience > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 3" />
-                </svg>
-                {portfolio.hero.yearsOfExperience}+ Years Experience
-              </span>
-            )}
-          </div>
-
-          {highlightTeaser.length > 0 && (
-            <ul className="mt-7 space-y-1.5 inline-block text-left">
-              {highlightTeaser.map((h, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-text">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                    <path d="m5 13 4 4L19 7" />
-                  </svg>
-                  {h}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {topSkills.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-center mt-7">
-              {topSkills.map((s, i) => (
-                <span key={i} className="mono text-xs px-2.5 py-1 rounded-full bg-surfaceAlt text-accent border border-border">
-                  {s.name}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-9">
-            <button
-              onClick={() => scrollToSection("projects")}
-              className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition font-medium"
-            >
-              View Projects
-            </button>
-            <button
-              onClick={() => scrollToSection("contact")}
-              className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition font-medium"
-            >
-              Hire Me
-            </button>
-            {portfolio.hero.githubLink && (
-              <a
-                href={portfolio.hero.githubLink}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
-              >
-                {SOCIAL_ICONS.github}
-                GitHub
-              </a>
-            )}
-            {portfolio.hero.resumeLink && (
-              <a
-                href={portfolio.hero.resumeLink}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
-                </svg>
-                Download Resume
-              </a>
-            )}
-          </div>
-
-          {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-            <div className="flex items-center justify-center gap-3 mt-8">
-              {Object.entries(portfolio.contact.socialLinks || {}).map(
-                ([key, val]) =>
-                  val && (
-                    <a
-                      key={key}
-                      href={val}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-9 h-9 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
-                    >
-                      {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                    </a>
-                  )
-              )}
-            </div>
-          )}
-
-          {portfolio.hero.stats?.length > 0 && (
-            <div className="mt-14 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-              {portfolio.hero.stats.map((s, i) => (
-                <div key={i}>
-                  <p className="font-display text-3xl font-semibold text-primary">{s.value}</p>
-                  <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {marqueeItems.length > 0 && (
-            <div className="mt-14">
-              <TechMarquee items={marqueeItems} />
-            </div>
-          )}
-
-          {/* Services - folded into hero, no separate nav section */}
-          {services.length > 0 && (
-            <div className="mt-16 pt-16 border-t border-border text-left">
-              <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">What I Do</p>
-              <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8 text-center">Services</h2>
-              <div className="grid sm:grid-cols-2 gap-5">
-                {services.map((s, i) => (
-                  <Reveal key={i} className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/50 transition">
-                    <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-display font-semibold mb-4">
-                      {String(i + 1).padStart(2, "0")}
-                    </div>
-                    <h3 className="font-display font-semibold mb-2">{s.title}</h3>
-                    <p className="text-textMuted text-sm leading-relaxed">{s.description}</p>
-                  </Reveal>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Why Choose Me - folded into hero, no separate nav section */}
-          {whyChooseMe.length > 0 && (
-            <div className="mt-16 pt-16 border-t border-border text-left">
-              <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">The Difference</p>
-              <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8 text-center">Why Choose Me</h2>
-              <div className="grid sm:grid-cols-2 gap-5">
-                {whyChooseMe.map((w, i) => (
-                  <Reveal key={i} className="flex gap-4">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 mt-0.5 text-primary shrink-0">
-                      <path d="m5 13 4 4L19 7" />
-                    </svg>
-                    <div>
-                      <h3 className="font-semibold mb-1">{w.title}</h3>
-                      <p className="text-textMuted text-sm leading-relaxed">{w.description}</p>
-                    </div>
-                  </Reveal>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-center mt-14">
-            <motion.button
-              onClick={() => scrollToSection("about")}
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.6, repeat: Infinity }}
-              className="text-textMuted hover:text-primary transition flex flex-col items-center gap-1"
-              aria-label="Scroll to about section"
-            >
-              <span className="text-[10px] mono uppercase tracking-widest">Scroll</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-            </motion.button>
-          </div>
-        </section>
-
-        {/* ---------- ABOUT (single column, no image card) ---------- */}
-        <section id="about" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get To Know Me</p>
-            <h2 className="font-display text-3xl font-semibold mb-10">About</h2>
-          </Reveal>
-
-          <Reveal>
-            <p className="text-textMuted leading-relaxed whitespace-pre-line text-base md:text-lg">
-              {portfolio.about.bio || "No bio added yet."}
-            </p>
-          </Reveal>
-
-          {portfolio.about.approach && (
-            <Reveal className="mt-10">
-              <h3 className="font-display text-lg font-semibold mb-3">My Approach</h3>
-              <p className="text-textMuted leading-relaxed whitespace-pre-line">{portfolio.about.approach}</p>
-            </Reveal>
-          )}
-
-          {portfolio.about.highlights?.length > 0 && (
-            <Reveal className="mt-10 grid sm:grid-cols-2 gap-3">
-              {portfolio.about.highlights.map((h, i) => (
-                <div key={i} className="flex gap-2 items-start bg-surface border border-border rounded-xl px-4 py-3">
-                  <span className="text-primary mt-0.5">→</span>
-                  <span className="text-sm text-text">{h}</span>
-                </div>
-              ))}
-            </Reveal>
-          )}
-        </section>
-
-        {/* ---------- SKILLS (premium grouped UI) ---------- */}
-        <section id="skills" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">What I Work With</p>
-            <h2 className="font-display text-3xl font-semibold mb-10">Skills</h2>
-          </Reveal>
-          {portfolio.skills.length === 0 && (
-            <p className="text-textMuted">No skills added yet.</p>
-          )}
-          <div className="grid md:grid-cols-2 gap-8">
-            {Object.entries(skillGroups).map(([category, items]) => (
-              <Reveal key={category} className="bg-surface border border-border rounded-2xl p-6">
-                <h3 className="mono text-xs text-primary uppercase tracking-widest mb-5">{category}</h3>
-                <div className="space-y-5">
-                  {items.map((s, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between items-baseline mb-1.5">
-                        <span className="text-sm font-medium">{s.name}</span>
-                        <span className="text-textMuted mono text-xs">{s.level}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-surfaceAlt overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: `${s.level}%` }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 0.8, delay: 0.1 + i * 0.06, ease: "easeOut" }}
-                          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </section>
-
-        {/* ---------- PROJECTS (with screenshots + video) ---------- */}
-        <section id="projects" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Selected Work</p>
-            <h2 className="font-display text-3xl font-semibold mb-10">Projects</h2>
-          </Reveal>
-          {portfolio.projects.length === 0 && (
-            <p className="text-textMuted">No projects added yet.</p>
-          )}
-          <div className="grid sm:grid-cols-2 gap-6">
-            {portfolio.projects.map((p, i) => (
-              <Reveal key={i} className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition group">
-                {p.image && (
-                  <button onClick={() => openLightbox(p, 0)} className="block w-full">
-                    <img src={p.image} alt={p.title} className="w-full h-44 object-cover group-hover:scale-[1.03] transition duration-300" />
-                  </button>
+                {portfolio.hero.availableForWork && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full bg-surface/80 backdrop-blur border border-border text-xs shadow-sm"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    </span>
+                    Available for Freelance
+                  </motion.div>
                 )}
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-display font-semibold">{p.title}</h3>
-                    {p.featured && (
-                      <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
-                        Featured
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-textMuted text-sm mb-3">{p.description}</p>
 
-                  {(p.screenshots?.length > 0 || p.video) && (
-                    <div className="flex gap-2 mb-3">
-                      {p.screenshots?.slice(0, 3).map((src, si) => (
-                        <button
-                          key={si}
-                          onClick={() => openLightbox(p, si)}
-                          className="w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
-                        >
-                          <img src={src} alt={`${p.title} screenshot ${si + 1}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                      {p.video && (
-                        <button
-                          onClick={() => openLightbox(p, -1)}
-                          className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center bg-surfaceAlt text-primary"
-                          aria-label="Play demo video"
-                        >
-                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                            <path d="M8 5v14l11-7Z" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="mono text-accent text-sm tracking-[0.25em] mb-4 uppercase"
+                >
+                  {portfolio.hero.tagline || "Welcome to my portfolio"}
+                </motion.p>
+
+                <motion.h1
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.6 }}
+                  className="font-display text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-5 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-text via-text to-primary"
+                >
+                  {portfolio.hero.title || owner.name}
+                </motion.h1>
+
+                <p className="mono text-lg md:text-2xl text-primary mb-6 h-8 font-medium">
+                  {displayText}
+                  <span className="animate-pulse">|</span>
+                </p>
+
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-textMuted text-base md:text-lg max-w-xl mx-auto leading-relaxed"
+                >
+                  {portfolio.hero.subtitle}
+                </motion.p>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-7">
+                  {portfolio.hero.location && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                        <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                        <circle cx="12" cy="10" r="2.5" />
+                      </svg>
+                      {portfolio.hero.location}
+                    </span>
                   )}
-
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {p.techStack?.map((t, idx) => (
-                      <span
-                        key={idx}
-                        className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-4 text-sm">
-                    {p.liveLink && (
-                      <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                        Live
-                      </a>
-                    )}
-                    {p.githubLink && (
-                      <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                        GitHub
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* Lightbox: screenshots gallery + demo video */}
-          {lightboxProject && (
-            <div
-              className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
-              onClick={() => setLightboxProject(null)}
-            >
-              <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
-                  <button onClick={() => setLightboxProject(null)} className="text-white/70 hover:text-white text-sm">
-                    Close ✕
-                  </button>
-                </div>
-
-                {lightboxIndex === -1 && lightboxProject.video ? (
-                  isVideoFile(lightboxProject.video) ? (
-                    <video src={lightboxProject.video} controls autoPlay className="w-full rounded-xl max-h-[75vh]" />
-                  ) : (
-                    <iframe
-                      src={toEmbedUrl(lightboxProject.video)}
-                      title="Project demo"
-                      allow="autoplay; fullscreen"
-                      className="w-full aspect-video rounded-xl"
-                    />
-                  )
-                ) : (
-                  <img
-                    src={lightboxProject.screenshots?.[lightboxIndex] || lightboxProject.image}
-                    alt={lightboxProject.title}
-                    className="w-full rounded-xl max-h-[75vh] object-contain bg-black"
-                  />
-                )}
-
-                {(lightboxProject.screenshots?.length > 0 || lightboxProject.video) && (
-                  <div className="flex gap-2 mt-3 overflow-x-auto">
-                    {lightboxProject.screenshots?.map((src, si) => (
-                      <button key={si} onClick={() => setLightboxIndex(si)} className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-white/20">
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                    {lightboxProject.video && (
-                      <button onClick={() => setLightboxIndex(-1)} className="w-16 h-16 shrink-0 rounded-lg border border-white/20 flex items-center justify-center bg-white/10 text-white">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                          <path d="M8 5v14l11-7Z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* ---------- EXPERIENCE (premium timeline) ---------- */}
-        <section id="experience" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Career Path</p>
-            <h2 className="font-display text-3xl font-semibold mb-10">Experience</h2>
-          </Reveal>
-          {portfolio.experience.length === 0 && (
-            <p className="text-textMuted">No experience added yet.</p>
-          )}
-          <div className="relative pl-8">
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            <div className="space-y-10">
-              {portfolio.experience.map((e, i) => (
-                <Reveal key={i} className="relative">
-                  <span className={`absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-bg ${e.current ? "bg-primary" : "bg-textMuted"}`} />
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <h3 className="font-semibold">{e.role} · {e.company}</h3>
-                    {e.current && (
-                      <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
-                        Current
-                      </span>
-                    )}
-                  </div>
-                  <p className="mono text-xs text-textMuted mb-2">
-                    {e.duration}
-                    {e.location && ` · ${e.location}`}
-                  </p>
-                  <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>
-                  {e.achievements?.length > 0 && (
-                    <ul className="mt-3 space-y-1.5">
-                      {e.achievements.map((a, ai) => (
-                        <li key={ai} className="flex gap-2 text-sm text-text">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                            <path d="m5 13 4 4L19 7" />
-                          </svg>
-                          {a}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ---------- EDUCATION (premium, university-aware) ---------- */}
-        <section id="education" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Academic Background</p>
-            <h2 className="font-display text-3xl font-semibold mb-10">Education</h2>
-          </Reveal>
-          {portfolio.education.length === 0 && (
-            <p className="text-textMuted">No education added yet.</p>
-          )}
-          <div className="grid sm:grid-cols-2 gap-5">
-            {portfolio.education.map((e, i) => (
-              <Reveal key={i} className="bg-surface border border-border rounded-2xl p-6">
-                <div className="flex items-start justify-between gap-3 mb-1">
-                  <h3 className="font-semibold">{e.university}</h3>
-                  {e.gpa && (
-                    <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">
-                      GPA {e.gpa}
+                  {portfolio.hero.yearsOfExperience > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 3" />
+                      </svg>
+                      {portfolio.hero.yearsOfExperience}+ Years Experience
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-primary mb-1">
-                  {e.degree}
-                  {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
-                </p>
-                <p className="mono text-xs text-textMuted mb-3">{e.duration}</p>
-                {e.description && <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>}
-              </Reveal>
-            ))}
-          </div>
-        </section>
 
-        {/* ---------- CONTACT (email lives here only) ---------- */}
-        <section id="contact" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full border-t border-border">
-          <Reveal>
-            <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get In Touch</p>
-            <h2 className="font-display text-3xl font-semibold mb-8">Contact</h2>
-            <div className="grid sm:grid-cols-3 gap-4">
-              {portfolio.contact.email && (
-                <div className="bg-surface border border-border rounded-xl p-4">
-                  <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Email</p>
-                  <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary hover:underline break-all">
-                    {portfolio.contact.email}
-                  </a>
-                </div>
-              )}
-              {portfolio.contact.phone && (
-                <div className="bg-surface border border-border rounded-xl p-4">
-                  <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Phone</p>
-                  <p className="text-sm text-text">{portfolio.contact.phone}</p>
-                </div>
-              )}
-              {portfolio.contact.location && (
-                <div className="bg-surface border border-border rounded-xl p-4">
-                  <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Location</p>
-                  <p className="text-sm text-text">{portfolio.contact.location}</p>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-4 mt-6">
-              {Object.entries(portfolio.contact.socialLinks || {}).map(
-                ([key, val]) =>
-                  val && (
+                {highlightTeaser.length > 0 && (
+                  <ul className="mt-8 space-y-2 inline-block text-left">
+                    {highlightTeaser.map((h, i) => (
+                      <motion.li
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.35 + i * 0.08 }}
+                        className="flex items-start gap-2 text-sm text-text"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                          <path d="m5 13 4 4L19 7" />
+                        </svg>
+                        {h}
+                      </motion.li>
+                    ))}
+                  </ul>
+                )}
+
+                {topSkills.length > 0 && (
+                  <div className="flex flex-wrap gap-2 justify-center mt-8">
+                    {topSkills.map((s, i) => (
+                      <span
+                        key={i}
+                        className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border hover:border-primary/50 transition"
+                      >
+                        {s.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-10">
+                  <button
+                    onClick={() => goToSection("projects")}
+                    className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                  >
+                    View Projects
+                  </button>
+                  <button
+                    onClick={() => goToSection("contact")}
+                    className="px-7 py-3 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition font-medium"
+                  >
+                    Hire Me
+                  </button>
+                  {portfolio.hero.resumeLink && (
                     <a
-                      key={key}
-                      href={val}
+                      href={portfolio.hero.resumeLink}
                       target="_blank"
                       rel="noreferrer"
-                      className="mono text-sm text-primary hover:underline capitalize"
+                      className="inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-primary hover:underline transition font-medium"
                     >
-                      {key}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                        <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
+                      </svg>
+                      Download Resume
                     </a>
-                  )
-              )}
-            </div>
-          </Reveal>
-        </section>
+                  )}
+                </div>
+
+                {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
+                  <div className="flex items-center justify-center gap-3 mt-9">
+                    {Object.entries(portfolio.contact.socialLinks || {}).map(
+                      ([key, val]) =>
+                        val && (
+                          <a
+                            key={key}
+                            href={val}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                          >
+                            {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                          </a>
+                        )
+                    )}
+                  </div>
+                )}
+
+                {portfolio.hero.stats?.length > 0 && (
+                  <div className="mt-16 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+                    {portfolio.hero.stats.map((s, i) => (
+                      <Reveal key={i} delay={i * 0.05}>
+                        <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                          {s.value}
+                        </p>
+                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
+                      </Reveal>
+                    ))}
+                  </div>
+                )}
+
+                {marqueeItems.length > 0 && (
+                  <div className="mt-14">
+                    <TechMarquee items={marqueeItems} />
+                  </div>
+                )}
+
+                {/* Services - folded into hero, no separate nav page */}
+                {services.length > 0 && (
+                  <div className="mt-16 pt-16 border-t border-border text-left">
+                    <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">What I Do</p>
+                    <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8 text-center">Services</h2>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      {services.map((s, i) => (
+                        <Reveal
+                          key={i}
+                          delay={i * 0.05}
+                          className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/50 hover:-translate-y-1 transition-all"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 text-primary flex items-center justify-center font-display font-semibold mb-4">
+                            {String(i + 1).padStart(2, "0")}
+                          </div>
+                          <h3 className="font-display font-semibold mb-2">{s.title}</h3>
+                          <p className="text-textMuted text-sm leading-relaxed">{s.description}</p>
+                        </Reveal>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Why Choose Me - folded into hero, no separate nav page */}
+                {whyChooseMe.length > 0 && (
+                  <div className="mt-16 pt-16 border-t border-border text-left">
+                    <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">The Difference</p>
+                    <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8 text-center">Why Choose Me</h2>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      {whyChooseMe.map((w, i) => (
+                        <Reveal key={i} delay={i * 0.05} className="flex gap-4">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 mt-0.5 text-primary shrink-0">
+                            <path d="m5 13 4 4L19 7" />
+                          </svg>
+                          <div>
+                            <h3 className="font-semibold mb-1">{w.title}</h3>
+                            <p className="text-textMuted text-sm leading-relaxed">{w.description}</p>
+                          </div>
+                        </Reveal>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeSection === "about" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get To Know Me</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">About</h2>
+                </Reveal>
+
+                <Reveal>
+                  <p className="text-textMuted leading-relaxed whitespace-pre-line text-base md:text-lg">
+                    {portfolio.about.bio || "No bio added yet."}
+                  </p>
+                </Reveal>
+
+                {portfolio.about.approach && (
+                  <Reveal className="mt-10">
+                    <h3 className="font-display text-lg font-semibold mb-3">My Approach</h3>
+                    <p className="text-textMuted leading-relaxed whitespace-pre-line">{portfolio.about.approach}</p>
+                  </Reveal>
+                )}
+
+                {portfolio.about.highlights?.length > 0 && (
+                  <Reveal className="mt-10 grid sm:grid-cols-2 gap-3">
+                    {portfolio.about.highlights.map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex gap-2 items-start bg-surface border border-border rounded-xl px-4 py-3 hover:border-primary/50 transition"
+                      >
+                        <span className="text-primary mt-0.5">→</span>
+                        <span className="text-sm text-text">{h}</span>
+                      </div>
+                    ))}
+                  </Reveal>
+                )}
+              </section>
+            )}
+
+            {activeSection === "skills" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">What I Work With</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Skills</h2>
+                </Reveal>
+                {portfolio.skills.length === 0 && <p className="text-textMuted">No skills added yet.</p>}
+                <div className="grid md:grid-cols-2 gap-8">
+                  {Object.entries(skillGroups).map(([category, items], gi) => (
+                    <Reveal
+                      key={category}
+                      delay={gi * 0.05}
+                      className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/40 transition"
+                    >
+                      <h3 className="mono text-xs text-primary uppercase tracking-widest mb-5">{category}</h3>
+                      <div className="space-y-5">
+                        {items.map((s, i) => (
+                          <div key={i}>
+                            <div className="flex justify-between items-baseline mb-1.5">
+                              <span className="text-sm font-medium">{s.name}</span>
+                              <span className="text-textMuted mono text-xs">{s.level}%</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-surfaceAlt overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                whileInView={{ width: `${s.level}%` }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.8, delay: 0.1 + i * 0.06, ease: "easeOut" }}
+                                className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeSection === "projects" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Selected Work</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Projects</h2>
+                </Reveal>
+                {portfolio.projects.length === 0 && <p className="text-textMuted">No projects added yet.</p>}
+                <div className="grid sm:grid-cols-2 gap-6">
+                  {portfolio.projects.map((p, i) => (
+                    <Reveal
+                      key={i}
+                      delay={i * 0.05}
+                      className="bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.35)] transition-all group"
+                    >
+                      {p.image && (
+                        <button onClick={() => openLightbox(p, 0)} className="block w-full overflow-hidden">
+                          <img
+                            src={p.image}
+                            alt={p.title}
+                            className="w-full h-44 object-cover group-hover:scale-[1.05] transition duration-500"
+                          />
+                        </button>
+                      )}
+                      <div className="p-5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-display font-semibold">{p.title}</h3>
+                          {p.featured && (
+                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-textMuted text-sm mb-3">{p.description}</p>
+
+                        {(p.screenshots?.length > 0 || p.video) && (
+                          <div className="flex gap-2 mb-3">
+                            {p.screenshots?.slice(0, 3).map((src, si) => (
+                              <button
+                                key={si}
+                                onClick={() => openLightbox(p, si)}
+                                className="w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0"
+                              >
+                                <img src={src} alt={`${p.title} screenshot ${si + 1}`} className="w-full h-full object-cover" />
+                              </button>
+                            ))}
+                            {p.video && (
+                              <button
+                                onClick={() => openLightbox(p, -1)}
+                                className="w-14 h-14 rounded-lg border border-border shrink-0 flex items-center justify-center bg-surfaceAlt text-primary"
+                                aria-label="Play demo video"
+                              >
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                  <path d="M8 5v14l11-7Z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {p.techStack?.map((t, idx) => (
+                            <span key={idx} className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex gap-4 text-sm">
+                          {p.liveLink && (
+                            <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              Live
+                            </a>
+                          )}
+                          {p.githubLink && (
+                            <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              GitHub
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
+
+                {/* Lightbox: screenshots gallery + demo video */}
+                {lightboxProject && (
+                  <div
+                    className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
+                    onClick={() => setLightboxProject(null)}
+                  >
+                    <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
+                        <button onClick={() => setLightboxProject(null)} className="text-white/70 hover:text-white text-sm">
+                          Close ✕
+                        </button>
+                      </div>
+
+                      {lightboxIndex === -1 && lightboxProject.video ? (
+                        isVideoFile(lightboxProject.video) ? (
+                          <video src={lightboxProject.video} controls autoPlay className="w-full rounded-xl max-h-[75vh]" />
+                        ) : (
+                          <iframe
+                            src={toEmbedUrl(lightboxProject.video)}
+                            title="Project demo"
+                            allow="autoplay; fullscreen"
+                            className="w-full aspect-video rounded-xl"
+                          />
+                        )
+                      ) : (
+                        <img
+                          src={lightboxProject.screenshots?.[lightboxIndex] || lightboxProject.image}
+                          alt={lightboxProject.title}
+                          className="w-full rounded-xl max-h-[75vh] object-contain bg-black"
+                        />
+                      )}
+
+                      {(lightboxProject.screenshots?.length > 0 || lightboxProject.video) && (
+                        <div className="flex gap-2 mt-3 overflow-x-auto">
+                          {lightboxProject.screenshots?.map((src, si) => (
+                            <button
+                              key={si}
+                              onClick={() => setLightboxIndex(si)}
+                              className="w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-white/20"
+                            >
+                              <img src={src} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                          {lightboxProject.video && (
+                            <button
+                              onClick={() => setLightboxIndex(-1)}
+                              className="w-16 h-16 shrink-0 rounded-lg border border-white/20 flex items-center justify-center bg-white/10 text-white"
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path d="M8 5v14l11-7Z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeSection === "experience" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Career Path</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Experience</h2>
+                </Reveal>
+                {portfolio.experience.length === 0 && <p className="text-textMuted">No experience added yet.</p>}
+                <div className="relative pl-8">
+                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
+                  <div className="space-y-10">
+                    {portfolio.experience.map((e, i) => (
+                      <Reveal key={i} delay={i * 0.05} className="relative">
+                        <span
+                          className={`absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-bg ${
+                            e.current ? "bg-primary shadow-[0_0_0_4px_rgba(var(--color-primary-rgb,99,102,241),0.15)]" : "bg-textMuted"
+                          }`}
+                        />
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="font-semibold">
+                            {e.role} · {e.company}
+                          </h3>
+                          {e.current && (
+                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <p className="mono text-xs text-textMuted mb-2">
+                          {e.duration}
+                          {e.location && ` · ${e.location}`}
+                        </p>
+                        <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>
+                        {e.achievements?.length > 0 && (
+                          <ul className="mt-3 space-y-1.5">
+                            {e.achievements.map((a, ai) => (
+                              <li key={ai} className="flex gap-2 text-sm text-text">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                                  <path d="m5 13 4 4L19 7" />
+                                </svg>
+                                {a}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </Reveal>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeSection === "education" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Academic Background</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Education</h2>
+                </Reveal>
+                {portfolio.education.length === 0 && <p className="text-textMuted">No education added yet.</p>}
+                <div className="grid sm:grid-cols-2 gap-5">
+                  {portfolio.education.map((e, i) => (
+                    <Reveal
+                      key={i}
+                      delay={i * 0.05}
+                      className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/40 transition"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <h3 className="font-semibold">{e.university}</h3>
+                        {e.gpa && (
+                          <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">
+                            GPA {e.gpa}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-primary mb-1">
+                        {e.degree}
+                        {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
+                      </p>
+                      <p className="mono text-xs text-textMuted mb-3">{e.duration}</p>
+                      {e.description && <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>}
+                    </Reveal>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeSection === "contact" && (
+              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full">
+                <Reveal>
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get In Touch</p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-8">Contact</h2>
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    {portfolio.contact.email && (
+                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
+                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Email</p>
+                        <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary hover:underline break-all">
+                          {portfolio.contact.email}
+                        </a>
+                      </div>
+                    )}
+                    {portfolio.contact.phone && (
+                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
+                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Phone</p>
+                        <p className="text-sm text-text">{portfolio.contact.phone}</p>
+                      </div>
+                    )}
+                    {portfolio.contact.location && (
+                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
+                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Location</p>
+                        <p className="text-sm text-text">{portfolio.contact.location}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-4 mt-6">
+                    {Object.entries(portfolio.contact.socialLinks || {}).map(
+                      ([key, val]) =>
+                        val && (
+                          <a
+                            key={key}
+                            href={val}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mono text-sm text-primary hover:underline capitalize"
+                          >
+                            {key}
+                          </a>
+                        )
+                    )}
+                  </div>
+                </Reveal>
+              </section>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );

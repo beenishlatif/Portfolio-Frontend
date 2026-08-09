@@ -89,6 +89,91 @@ const groupSkillsByCategory = (skills) => {
   return groups;
 };
 
+// Rendered at the bottom of every "page" — each section gets its own
+// footer since only one section is mounted at a time.
+const PageFooter = ({ owner, portfolio, onNavigate }) => {
+  const social = portfolio.contact?.socialLinks || {};
+  const hasSocial = Object.values(social).some(Boolean);
+
+  return (
+    <footer className="border-t border-border mt-8">
+      <div className="max-w-6xl mx-auto px-6 md:px-10 py-12">
+        <div className="grid sm:grid-cols-3 gap-10">
+          <div>
+            <button onClick={() => onNavigate("hero")} className="group flex items-center gap-2 font-display font-semibold text-lg mb-3">
+              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent text-white text-sm shadow-[0_4px_18px_-4px_var(--color-primary)] group-hover:scale-105 transition-transform">
+                {owner.name?.[0]?.toUpperCase() || "•"}
+              </span>
+              {owner.name}
+              <span className="text-primary">.</span>
+            </button>
+            <p className="text-textMuted text-sm leading-relaxed max-w-xs">
+              {portfolio.hero.tagline || portfolio.hero.subtitle || "Thanks for stopping by."}
+            </p>
+          </div>
+
+          <div>
+            <p className="mono text-[10px] text-primary uppercase tracking-widest mb-4">Quick Links</p>
+            <div className="grid grid-cols-2 gap-2">
+              {SECTIONS.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onNavigate(s.id)}
+                  className="text-left text-sm text-textMuted hover:text-primary transition"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mono text-[10px] text-primary uppercase tracking-widest mb-4">Get In Touch</p>
+            {portfolio.contact.email && (
+              <a href={`mailto:${portfolio.contact.email}`} className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all">
+                {portfolio.contact.email}
+              </a>
+            )}
+            {hasSocial && (
+              <div className="flex items-center gap-2">
+                {Object.entries(social).map(
+                  ([key, val]) =>
+                    val && (
+                      <a
+                        key={key}
+                        href={val}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
+                      >
+                        {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                      </a>
+                    )
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-10 pt-6 border-t border-border">
+          <p className="mono text-xs text-textMuted">
+            © {new Date().getFullYear()} {owner.name}. All rights reserved.
+          </p>
+          <button
+            onClick={() => onNavigate("hero")}
+            className="inline-flex items-center gap-1.5 text-xs mono text-textMuted hover:text-primary transition"
+          >
+            Back to top
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
 const isVideoFile = (url = "") => /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
 const toEmbedUrl = (url = "") => {
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
@@ -611,38 +696,147 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "about" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full">
-                <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get To Know Me</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">About</h2>
-                </Reveal>
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
+                <div className="pointer-events-none absolute -top-10 right-0 w-72 h-72 rounded-full bg-primary/10 blur-[100px] -z-10" />
 
-                <Reveal>
-                  <p className="text-textMuted leading-relaxed whitespace-pre-line text-base md:text-lg">
-                    {portfolio.about.bio || "No bio added yet."}
+                <Reveal className="max-w-2xl">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Get To Know Me
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">About</h2>
+                  <p className="text-textMuted text-sm md:text-base">
+                    A closer look at who I am, how I think, and what I bring to the table.
                   </p>
                 </Reveal>
 
-                {portfolio.about.approach && (
-                  <Reveal className="mt-10">
-                    <h3 className="font-display text-lg font-semibold mb-3">My Approach</h3>
-                    <p className="text-textMuted leading-relaxed whitespace-pre-line">{portfolio.about.approach}</p>
-                  </Reveal>
-                )}
+                <div className="grid lg:grid-cols-5 gap-6 lg:gap-8 mt-12 items-start">
+                  {/* Main narrative column */}
+                  <div className="lg:col-span-3 space-y-6">
+                    <Reveal className="bg-surface border border-border rounded-2xl p-7 md:p-8">
+                      <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">My Story</h3>
+                      <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
+                        {portfolio.about.bio || "No bio added yet."}
+                      </p>
+                    </Reveal>
 
-                {portfolio.about.highlights?.length > 0 && (
-                  <Reveal className="mt-10 grid sm:grid-cols-2 gap-3">
-                    {portfolio.about.highlights.map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex gap-2 items-start bg-surface border border-border rounded-xl px-4 py-3 hover:border-primary/50 transition"
-                      >
-                        <span className="text-primary mt-0.5">→</span>
-                        <span className="text-sm text-text">{h}</span>
+                    {portfolio.about.approach && (
+                      <Reveal delay={0.05} className="relative bg-surface border border-border rounded-2xl p-7 md:p-8 overflow-hidden">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="absolute -top-2 -left-1 w-16 h-16 text-primary/10">
+                          <path d="M9.17 6C6.87 8.06 5 11.06 5 14.83c0 3.13 1.87 5.17 4.35 5.17 2.13 0 3.65-1.65 3.65-3.7 0-2.09-1.48-3.5-3.13-3.5-.28 0-.52.02-.63.05.2-2.5 2.02-4.7 4.2-6.24L9.17 6Zm9.13 0c-2.3 2.06-4.17 5.06-4.17 8.83 0 3.13 1.87 5.17 4.35 5.17 2.13 0 3.65-1.65 3.65-3.7 0-2.09-1.48-3.5-3.13-3.5-.28 0-.52.02-.63.05.2-2.5 2.02-4.7 4.2-6.24L18.3 6Z" />
+                        </svg>
+                        <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">My Approach</h3>
+                        <p className="text-textMuted leading-relaxed whitespace-pre-line relative">{portfolio.about.approach}</p>
+                      </Reveal>
+                    )}
+
+                    {portfolio.about.highlights?.length > 0 && (
+                      <Reveal delay={0.1}>
+                        <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4 mt-2">Highlights</h3>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {portfolio.about.highlights.map((h, i) => (
+                            <div
+                              key={i}
+                              className="flex gap-3 items-start bg-surface border border-border rounded-xl px-4 py-3.5 hover:border-primary/50 hover:-translate-y-0.5 transition-all"
+                            >
+                              <span className="mono text-[10px] text-primary bg-primary/10 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                                {String(i + 1).padStart(2, "0")}
+                              </span>
+                              <span className="text-sm text-text leading-relaxed">{h}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Reveal>
+                    )}
+                  </div>
+
+                  {/* At-a-glance side panel */}
+                  <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-24">
+                    <Reveal delay={0.05} className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-6">
+                      <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-5">At a Glance</h3>
+                      <div className="space-y-4">
+                        {portfolio.hero.location && (
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-lg bg-surface/80 border border-border flex items-center justify-center text-primary shrink-0">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                                <circle cx="12" cy="10" r="2.5" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Location</p>
+                              <p className="text-sm text-text font-medium">{portfolio.hero.location}</p>
+                            </div>
+                          </div>
+                        )}
+                        {portfolio.hero.yearsOfExperience > 0 && (
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-lg bg-surface/80 border border-border flex items-center justify-center text-primary shrink-0">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 7v5l3 3" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Experience</p>
+                              <p className="text-sm text-text font-medium">{portfolio.hero.yearsOfExperience}+ Years</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3">
+                          <span className="w-9 h-9 rounded-lg bg-surface/80 border border-border flex items-center justify-center text-primary shrink-0">
+                            <span className="relative flex h-2.5 w-2.5">
+                              {portfolio.hero.availableForWork && (
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                              )}
+                              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${portfolio.hero.availableForWork ? "bg-green-500" : "bg-textMuted"}`} />
+                            </span>
+                          </span>
+                          <div>
+                            <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Availability</p>
+                            <p className="text-sm text-text font-medium">
+                              {portfolio.hero.availableForWork ? "Open for Freelance" : "Not Currently Available"}
+                            </p>
+                          </div>
+                        </div>
+                        {portfolio.contact.email && (
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-lg bg-surface/80 border border-border flex items-center justify-center text-primary shrink-0">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                                <path d="M4 6h16v12H4V6Zm0 0 8 7 8-7" />
+                              </svg>
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Email</p>
+                              <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary font-medium hover:underline break-all">
+                                {portfolio.contact.email}
+                              </a>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </Reveal>
-                )}
+
+                      <button
+                        onClick={() => goToSection("contact")}
+                        className="w-full mt-6 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                      >
+                        Let's Work Together
+                      </button>
+                    </Reveal>
+
+                    {topSkills.length > 0 && (
+                      <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6">
+                        <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">Core Skills</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {topSkills.map((s, i) => (
+                            <span key={i} className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border">
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                      </Reveal>
+                    )}
+                  </div>
+                </div>
               </section>
             )}
 
@@ -962,6 +1156,8 @@ const Portfolio = ({ slugProp }) => {
                 </Reveal>
               </section>
             )}
+
+            <PageFooter owner={owner} portfolio={portfolio} onNavigate={goToSection} />
           </motion.div>
         </AnimatePresence>
       </main>

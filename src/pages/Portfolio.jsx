@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useId } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { AnimatePresence, motion, animate, useMotionValue, useSpring, useInView } from "framer-motion";
+import { AnimatePresence, motion, animate, useMotionValue, useInView } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
 
@@ -209,95 +209,133 @@ const AnimatedStat = ({ value, label, suffix = "" }) => {
   );
 };
 
-// Signature skill card for the Skills page: a glowing progress ring that
-// draws itself in on scroll with a count-up percentage, sitting on a card
-// that tilts gently toward the cursor. Driven entirely by the skill's own
-// name/level/category fields — nothing computed or invented beyond that.
-const RadialSkillCard = ({ skill, delay = 0 }) => {
-  const level = skill.level ?? 0;
-  const meta = skillLevelMeta(level);
-  const gradId = useId();
+// A skill's proficiency decides how much room it gets — this is the
+// signature idea of the redesigned Skills page: the layout itself is the
+// data visualization, not a decoration bolted onto uniform cards.
+const skillTier = (level = 0) => {
+  if (level >= 90) return "hero";
+  if (level >= 70) return "tall";
+  return "compact";
+};
 
-  const cardRef = useRef(null);
-  const inView = useInView(cardRef, { once: true, amount: 0.4 });
+const TIER_SPAN = {
+  hero: "col-span-2 row-span-2",
+  tall: "row-span-2",
+  compact: "",
+};
+
+// Shared count-up + fill-bar hook used by every tile size below.
+const useSkillReveal = (level, delay) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.4 });
   const [display, setDisplay] = useState(0);
-
-  const rotateX = useMotionValue(0);
-  const rotateY = useMotionValue(0);
-  const springX = useSpring(rotateX, { stiffness: 180, damping: 16 });
-  const springY = useSpring(rotateY, { stiffness: 180, damping: 16 });
-
   useEffect(() => {
     if (!inView) return;
     const controls = animate(0, level, {
-      duration: 1.1,
+      duration: 1,
       delay,
       ease: [0.22, 1, 0.36, 1],
       onUpdate: (v) => setDisplay(Math.round(v)),
     });
     return () => controls.stop();
   }, [inView, level, delay]);
+  return { ref, inView, display };
+};
 
-  const handleMouseMove = (e) => {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    rotateY.set(px * 12);
-    rotateX.set(-py * 12);
-  };
-  const handleMouseLeave = () => {
-    rotateX.set(0);
-    rotateY.set(0);
-  };
+const BentoSkillTile = ({ skill, delay = 0 }) => {
+  const level = skill.level ?? 0;
+  const tier = skillTier(level);
+  const meta = skillLevelMeta(level);
+  const { ref, display } = useSkillReveal(level, delay);
+  const category = skill.category || "General";
 
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (display / 100) * circumference;
+  if (tier === "hero") {
+    return (
+      <motion.div
+        ref={ref}
+        initial={{ opacity: 0, scale: 0.94 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-6 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/15 to-accent/15 border border-primary/30 hover:border-primary/60 hover:-translate-y-1 transition-all`}
+      >
+        <div className="pointer-events-none absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-primary/25 blur-[70px] group-hover:bg-primary/35 transition-colors duration-300" />
+        <div className="relative flex items-center justify-between">
+          <span className="mono text-[10px] uppercase tracking-widest text-primary">{category}</span>
+          <span className={`mono text-[10px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
+        </div>
+        <div className="relative">
+          <h4 className="font-display text-2xl md:text-3xl font-bold mb-3">{skill.name}</h4>
+          <div className="flex items-end gap-1">
+            <span className="mono text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent tabular-nums">
+              {display}
+            </span>
+            <span className="mono text-xl text-textMuted mb-1">%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-surfaceAlt/70 overflow-hidden mt-4">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: `${level}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, delay, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+            />
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (tier === "tall") {
+    return (
+      <motion.div
+        ref={ref}
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
+        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-5 flex flex-col justify-between bg-surface border border-border hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all`}
+      >
+        <span className="mono text-[10px] uppercase tracking-widest text-textMuted">{category}</span>
+        <div>
+          <h4 className="font-semibold text-sm mb-2 truncate">{skill.name}</h4>
+          <span className="mono text-2xl font-bold text-primary tabular-nums">{display}%</span>
+          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden mt-2.5">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: `${level}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.9, delay, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+            />
+          </div>
+          <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-2.5 ${meta.className}`}>{meta.label}</span>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
-      ref={cardRef}
-      initial={{ opacity: 0, y: 26 }}
+      ref={ref}
+      initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{ rotateX: springX, rotateY: springY, transformPerspective: 700 }}
-      className="group relative bg-surface border border-border rounded-2xl p-5 flex items-center gap-4 overflow-hidden hover:border-primary/50 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-colors"
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
+      className="group relative rounded-2xl p-4 flex flex-col justify-center bg-surface border border-border hover:border-primary/50 hover:-translate-y-0.5 transition-all"
     >
-      <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
-
-      <div className="relative w-16 h-16 shrink-0">
-        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="8" />
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke={`url(#${gradId})`}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-          />
-          <defs>
-            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="var(--color-primary)" />
-              <stop offset="100%" stopColor="var(--color-accent)" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="mono text-xs font-semibold tabular-nums">{display}%</span>
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="font-semibold text-xs truncate">{skill.name}</h4>
+        <span className="mono text-[10px] text-textMuted shrink-0 tabular-nums">{display}%</span>
       </div>
-
-      <div className="relative min-w-0">
-        <h4 className="font-semibold text-sm truncate">{skill.name}</h4>
-        <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 ${meta.className}`}>{meta.label}</span>
+      <div className="h-1 rounded-full bg-surfaceAlt overflow-hidden mt-2">
+        <motion.div
+          initial={{ width: 0 }}
+          whileInView={{ width: `${level}%` }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay, ease: "easeOut" }}
+          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+        />
       </div>
     </motion.div>
   );
@@ -458,14 +496,12 @@ const Portfolio = ({ slugProp }) => {
   const services = portfolio.hero?.services || [];
   const whyChooseMe = portfolio.hero?.whyChooseMe || [];
   const skillGroups = groupSkillsByCategory(portfolio.skills || []);
-  const skillCategories = ["All", ...Object.keys(skillGroups)];
-  const visibleSkillGroups =
-    skillFilter === "All" ? Object.entries(skillGroups) : Object.entries(skillGroups).filter(([cat]) => cat === skillFilter);
-  const skillCount = portfolio.skills?.length || 0;
+
   const skillCategoryCount = Object.keys(skillGroups).length;
   const avgSkillLevel = skillCount
     ? Math.round(portfolio.skills.reduce((sum, s) => sum + (s.level || 0), 0) / skillCount)
     : 0;
+  const visibleSkills = skillFilter === "All" ? portfolio.skills || [] : skillGroups[skillFilter] || [];
 
   const openLightbox = (project, index = 0) => {
     setLightboxProject(project);
@@ -1045,7 +1081,8 @@ const Portfolio = ({ slugProp }) => {
                       </div>
                     )}
 
-                    {/* Skill cards, grouped by category — glowing radial rings that tilt toward the cursor */}
+                    {/* Bento wall — tile size is driven by each skill's own level, so
+                        the strongest skills are literally the biggest things on screen */}
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={skillFilter}
@@ -1053,23 +1090,10 @@ const Portfolio = ({ slugProp }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        className="space-y-10 mt-10"
+                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-[128px] gap-4 mt-10 [grid-auto-flow:dense]"
                       >
-                        {visibleSkillGroups.map(([category, items], gi) => (
-                          <div key={category}>
-                            <div className="flex items-center gap-3 mb-5">
-                              <h3 className="font-display text-sm uppercase tracking-widest text-primary">{category}</h3>
-                              <span className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
-                              <span className="mono text-[10px] text-textMuted">
-                                {items.length} skill{items.length > 1 ? "s" : ""}
-                              </span>
-                            </div>
-                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {items.map((s, i) => (
-                                <RadialSkillCard key={s.name + i} skill={s} delay={gi * 0.04 + i * 0.05} />
-                              ))}
-                            </div>
-                          </div>
+                        {visibleSkills.map((s, i) => (
+                          <BentoSkillTile key={s.name + i} skill={s} delay={Math.min(i * 0.05, 0.4)} />
                         ))}
                       </motion.div>
                     </AnimatePresence>

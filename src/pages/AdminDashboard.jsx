@@ -17,7 +17,18 @@ const TABS = [
 ];
 
 const emptyPortfolio = {
-  hero: { title: "", subtitle: "", tagline: "", resumeLink: "", profileImage: "" },
+  hero: {
+    title: "",
+    subtitle: "",
+    tagline: "",
+    resumeLink: "",
+    profileImage: "",
+    roles: [],
+    location: "",
+    yearsOfExperience: 0,
+    availableForWork: true,
+    stats: [],
+  },
   about: { bio: "", image: "", highlights: [] },
   skills: [],
   projects: [],
@@ -41,7 +52,11 @@ const AdminDashboard = () => {
     const load = async () => {
       try {
         const { data } = await api.get("/portfolio/me");
-        setForm({ ...emptyPortfolio, ...data });
+        setForm({
+          ...emptyPortfolio,
+          ...data,
+          hero: { ...emptyPortfolio.hero, ...data.hero },
+        });
       } catch (err) {
         setMessage("Could not load your portfolio data.");
       } finally {
@@ -98,6 +113,30 @@ const AdminDashboard = () => {
       const list = [...prev[listName]];
       list.splice(index, 1);
       return { ...prev, [listName]: list };
+    });
+  };
+
+  // --- Helpers for nested hero.stats (same add/update/remove pattern as top-level lists) ---
+  const addHeroStat = () => {
+    setForm((prev) => ({
+      ...prev,
+      hero: { ...prev.hero, stats: [...(prev.hero.stats || []), { label: "", value: "" }] },
+    }));
+  };
+
+  const updateHeroStat = (index, field, value) => {
+    setForm((prev) => {
+      const stats = [...(prev.hero.stats || [])];
+      stats[index] = { ...stats[index], [field]: value };
+      return { ...prev, hero: { ...prev.hero, stats } };
+    });
+  };
+
+  const removeHeroStat = (index) => {
+    setForm((prev) => {
+      const stats = [...(prev.hero.stats || [])];
+      stats.splice(index, 1);
+      return { ...prev, hero: { ...prev.hero, stats } };
     });
   };
 
@@ -173,14 +212,86 @@ const AdminDashboard = () => {
           >
             {tab === "hero" && (
               <div>
-                <label className={labelClass}>Title</label>
+                <label className={labelClass}>Title / Name</label>
                 <input className={inputClass} value={form.hero.title} onChange={(e) => updateField("hero", "title", e.target.value)} />
+
                 <label className={labelClass}>Subtitle</label>
                 <input className={inputClass} value={form.hero.subtitle} onChange={(e) => updateField("hero", "subtitle", e.target.value)} />
+
                 <label className={labelClass}>Tagline</label>
                 <input className={inputClass} value={form.hero.tagline} onChange={(e) => updateField("hero", "tagline", e.target.value)} />
+
+                <label className={labelClass}>Profile Image URL</label>
+                <input className={inputClass} value={form.hero.profileImage} onChange={(e) => updateField("hero", "profileImage", e.target.value)} />
+
                 <label className={labelClass}>Resume Link</label>
                 <input className={inputClass} value={form.hero.resumeLink} onChange={(e) => updateField("hero", "resumeLink", e.target.value)} />
+
+                <label className={labelClass}>Location</label>
+                <input
+                  className={inputClass}
+                  placeholder="e.g. Lahore, Pakistan"
+                  value={form.hero.location}
+                  onChange={(e) => updateField("hero", "location", e.target.value)}
+                />
+
+                <label className={labelClass}>Years of Experience</label>
+                <input
+                  type="number"
+                  min={0}
+                  className={inputClass}
+                  value={form.hero.yearsOfExperience}
+                  onChange={(e) => updateField("hero", "yearsOfExperience", Number(e.target.value))}
+                />
+
+                <label className={labelClass}>Rotating Roles (comma separated, typewriter effect)</label>
+                <input
+                  className={inputClass}
+                  placeholder="Full Stack Developer, UI/UX Designer, Freelancer"
+                  value={form.hero.roles?.join(", ") || ""}
+                  onChange={(e) =>
+                    updateField(
+                      "hero",
+                      "roles",
+                      e.target.value.split(",").map((r) => r.trim()).filter(Boolean)
+                    )
+                  }
+                />
+
+                <label className="flex items-center gap-2 mt-4 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.hero.availableForWork}
+                    onChange={(e) => updateField("hero", "availableForWork", e.target.checked)}
+                  />
+                  Show "Available for work" badge
+                </label>
+
+                <p className="mono text-xs text-textMuted mt-6 mb-2">Stats (shown below hero, e.g. Projects, Clients)</p>
+                {(form.hero.stats || []).map((s, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-lg p-3 mb-2 grid grid-cols-2 gap-3">
+                    <input
+                      placeholder="Value (e.g. 50+)"
+                      className={inputClass}
+                      value={s.value}
+                      onChange={(e) => updateHeroStat(i, "value", e.target.value)}
+                    />
+                    <div>
+                      <input
+                        placeholder="Label (e.g. Projects Done)"
+                        className={inputClass}
+                        value={s.label}
+                        onChange={(e) => updateHeroStat(i, "label", e.target.value)}
+                      />
+                      <button onClick={() => removeHeroStat(i)} className="text-xs text-red-400 mt-2 hover:underline">
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={addHeroStat} className="text-sm text-primary hover:underline">
+                  + Add Stat
+                </button>
               </div>
             )}
 

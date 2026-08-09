@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
 
@@ -120,6 +120,20 @@ const TechMarquee = ({ items }) => {
   );
 };
 
+const Reveal = ({ children, className }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 24 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, amount: 0.2 }}
+    transition={{ duration: 0.5, ease: "easeOut" }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
+
+// slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
+// and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
   const { slug: slugParam } = useParams();
   const slug = slugProp || slugParam;
@@ -129,9 +143,12 @@ const Portfolio = ({ slugProp }) => {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState("hero");
 
+  // --- Typewriter effect state (hero section) ---
   const [roleIndex, setRoleIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const observerRef = useRef(null);
 
   useEffect(() => {
     const fetchPortfolio = async () => {
@@ -148,8 +165,10 @@ const Portfolio = ({ slugProp }) => {
       }
     };
     fetchPortfolio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
+  // Typewriter loop - cycles through hero.roles (falls back to hero.title)
   useEffect(() => {
     if (!data) return;
     const roles =
@@ -180,6 +199,37 @@ const Portfolio = ({ slugProp }) => {
 
     return () => clearTimeout(timeout);
   }, [displayText, isDeleting, roleIndex, data]);
+
+  // Scroll-spy: highlight the nav item for whichever section is in view,
+  // and let nav clicks smooth-scroll to that section.
+  useEffect(() => {
+    if (!data) return;
+
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActive(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
+    );
+
+    SECTIONS.forEach((s) => {
+      const el = document.getElementById(s.id);
+      if (el) observerRef.current.observe(el);
+    });
+
+    return () => observerRef.current && observerRef.current.disconnect();
+  }, [data]);
+
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   if (loading) {
     return (
@@ -215,18 +265,20 @@ const Portfolio = ({ slugProp }) => {
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col">
+      {/* ===== Premium Navbar ===== */}
       <header className="sticky top-0 z-20 backdrop-blur bg-bg/80 border-b border-border">
         <div className="flex items-center justify-between px-6 md:px-10 py-4 gap-4">
-          <button onClick={() => setActive("hero")} className="font-display font-semibold text-lg shrink-0">
+          <button onClick={() => scrollToSection("hero")} className="font-display font-semibold text-lg shrink-0">
             {owner.name}
             <span className="text-primary">.</span>
           </button>
 
+          {/* Desktop pill nav - scrolls to section, highlights on scroll */}
           <nav className="hidden lg:flex items-center gap-1 bg-surface/60 border border-border rounded-full p-1">
             {SECTIONS.map((s) => (
               <button
                 key={s.id}
-                onClick={() => setActive(s.id)}
+                onClick={() => scrollToSection(s.id)}
                 className={`relative px-4 py-1.5 text-sm rounded-full transition ${
                   active === s.id ? "text-white" : "text-textMuted hover:text-text"
                 }`}
@@ -266,7 +318,7 @@ const Portfolio = ({ slugProp }) => {
               ))}
             </select>
             <button
-              onClick={() => setActive("contact")}
+              onClick={() => scrollToSection("contact")}
               className="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition"
             >
               Hire Me
@@ -274,11 +326,12 @@ const Portfolio = ({ slugProp }) => {
           </div>
         </div>
 
+        {/* Mobile section tabs - same scroll behaviour */}
         <nav className="flex lg:hidden gap-1 overflow-x-auto px-6 pb-3">
           {SECTIONS.map((s) => (
             <button
               key={s.id}
-              onClick={() => setActive(s.id)}
+              onClick={() => scrollToSection(s.id)}
               className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition ${
                 active === s.id
                   ? "bg-primary text-white"
@@ -291,383 +344,123 @@ const Portfolio = ({ slugProp }) => {
         </nav>
       </header>
 
-      <main className="flex-1 px-6 md:px-10 py-12 max-w-6xl mx-auto w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={active}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            {active === "hero" && (
-              <div className="py-6 md:py-14">
-                <div className="grid md:grid-cols-2 gap-14 items-center">
-                  <div className="text-center md:text-left">
-                    {portfolio.hero.availableForWork && (
-                      <div className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full bg-surface border border-border text-xs">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                        </span>
-                        Available for Freelance
-                      </div>
-                    )}
-
-                    <p className="mono text-accent text-sm tracking-widest mb-3">
-                      {portfolio.hero.tagline || "WELCOME TO MY PORTFOLIO"}
-                    </p>
-
-                    <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-3">
-                      {portfolio.hero.title || owner.name}
-                    </h1>
-
-                    <p className="mono text-lg md:text-2xl text-primary mb-5 h-8">
-                      {displayText}
-                      <span className="animate-pulse">|</span>
-                    </p>
-
-                    <p className="text-textMuted text-base md:text-lg max-w-lg mx-auto md:mx-0 leading-relaxed">
-                      {portfolio.hero.subtitle}
-                    </p>
-
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-5">
-                      {portfolio.hero.location && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                            <circle cx="12" cy="10" r="2.5" />
-                          </svg>
-                          {portfolio.hero.location}
-                        </span>
-                      )}
-                      {portfolio.hero.yearsOfExperience > 0 && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 3" />
-                          </svg>
-                          {portfolio.hero.yearsOfExperience}+ Years Experience
-                        </span>
-                      )}
-                      {portfolio.contact?.email && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                            <path d="m3 7 9 6 9-6" />
-                          </svg>
-                          {portfolio.contact.email}
-                        </span>
-                      )}
-                    </div>
-
-                    {highlightTeaser.length > 0 && (
-                      <ul className="mt-6 space-y-1.5 inline-block text-left">
-                        {highlightTeaser.map((h, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-text">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                              <path d="m5 13 4 4L19 7" />
-                            </svg>
-                            {h}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {topSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-6">
-                        {topSkills.map((s, i) => (
-                          <span key={i} className="mono text-xs px-2.5 py-1 rounded-full bg-surfaceAlt text-accent border border-border">
-                            {s.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-8">
-                      <button
-                        onClick={() => setActive("projects")}
-                        className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition font-medium"
-                      >
-                        View Projects
-                      </button>
-                      <button
-                        onClick={() => setActive("contact")}
-                        className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition font-medium"
-                      >
-                        Hire Me
-                      </button>
-                      {portfolio.hero.resumeLink && (
-                        <a
-                          href={portfolio.hero.resumeLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
-                          </svg>
-                          Download Resume
-                        </a>
-                      )}
-                    </div>
-
-                    {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-                      <div className="flex items-center justify-center md:justify-start gap-3 mt-7">
-                        {Object.entries(portfolio.contact.socialLinks || {}).map(
-                          ([key, val]) =>
-                            val && (
-                              <a
-                                key={key}
-                                href={val}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="w-9 h-9 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
-                              >
-                                {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                              </a>
-                            )
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative flex justify-center md:justify-end py-10 md:py-0">
-                    <div className="absolute -top-8 -left-8 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute -bottom-8 -right-4 w-56 h-56 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
-
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.6 }}
-                      className="relative"
-                    >
-                      <CodeVisual owner={owner} portfolio={portfolio} />
-
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.5 }}
-                        className="absolute -top-5 -left-5 flex items-center gap-2 bg-bg border border-border rounded-full pl-1.5 pr-3 py-1.5 shadow-lg"
-                      >
-                        <div className="w-7 h-7 rounded-full overflow-hidden bg-surfaceAlt flex items-center justify-center shrink-0">
-                          {portfolio.hero.profileImage ? (
-                            <img src={portfolio.hero.profileImage} alt={owner.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="font-display text-[10px] font-semibold text-primary">{initials}</span>
-                          )}
-                        </div>
-                        <span className="text-xs font-medium">{owner.name}</span>
-                      </motion.div>
-
-                      {portfolio.hero.stats?.[0] && (
-                        <motion.div
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.5, duration: 0.5 }}
-                          className="absolute -right-8 top-10 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
-                        >
-                          <p className="font-display text-xl font-semibold text-primary">
-                            {portfolio.hero.stats[0].value}
-                          </p>
-                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
-                            {portfolio.hero.stats[0].label}
-                          </p>
-                        </motion.div>
-                      )}
-
-                      {portfolio.hero.stats?.[1] && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.6, duration: 0.5 }}
-                          className="absolute -right-6 -bottom-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
-                        >
-                          <p className="font-display text-xl font-semibold text-primary">
-                            {portfolio.hero.stats[1].value}
-                          </p>
-                          <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
-                            {portfolio.hero.stats[1].label}
-                          </p>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  </div>
+      {/* ===== All sections render together, one after another ===== */}
+      <main className="flex-1 w-full">
+        {/* ---------- HERO ---------- */}
+        <section id="hero" className="scroll-mt-24 px-6 md:px-10 py-6 md:py-14 max-w-6xl mx-auto w-full">
+          <div className="grid md:grid-cols-2 gap-14 items-center">
+            {/* Left column: text content */}
+            <div className="text-center md:text-left">
+              {portfolio.hero.availableForWork && (
+                <div className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full bg-surface border border-border text-xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  </span>
+                  Available for Freelance
                 </div>
+              )}
 
-                {marqueeItems.length > 0 && (
-                  <div className="mt-16">
-                    <TechMarquee items={marqueeItems} />
-                  </div>
-                )}
+              <p className="mono text-accent text-sm tracking-widest mb-3">
+                {portfolio.hero.tagline || "WELCOME TO MY PORTFOLIO"}
+              </p>
 
-                {portfolio.hero.stats?.length > 0 && (
-                  <div className="mt-10 pt-10 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-                    {portfolio.hero.stats.map((s, i) => (
-                      <div key={i}>
-                        <p className="font-display text-3xl font-semibold text-primary">{s.value}</p>
-                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-3">
+                {portfolio.hero.title || owner.name}
+              </h1>
 
-                <div className="flex justify-center mt-14">
-                  <motion.button
-                    onClick={() => setActive("about")}
-                    animate={{ y: [0, 8, 0] }}
-                    transition={{ duration: 1.6, repeat: Infinity }}
-                    className="text-textMuted hover:text-primary transition flex flex-col items-center gap-1"
-                    aria-label="Scroll to about section"
-                  >
-                    <span className="text-[10px] mono uppercase tracking-widest">Scroll</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                      <path d="M12 5v14M5 12l7 7 7-7" />
+              <p className="mono text-lg md:text-2xl text-primary mb-5 h-8">
+                {displayText}
+                <span className="animate-pulse">|</span>
+              </p>
+
+              <p className="text-textMuted text-base md:text-lg max-w-lg mx-auto md:mx-0 leading-relaxed">
+                {portfolio.hero.subtitle}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-5">
+                {portfolio.hero.location && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                      <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                      <circle cx="12" cy="10" r="2.5" />
                     </svg>
-                  </motion.button>
-                </div>
-              </div>
-            )}
-
-            {active === "about" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">About</h2>
-                <p className="text-textMuted leading-relaxed whitespace-pre-line">
-                  {portfolio.about.bio || "No bio added yet."}
-                </p>
-                {portfolio.about.highlights?.length > 0 && (
-                  <ul className="mt-6 space-y-2">
-                    {portfolio.about.highlights.map((h, i) => (
-                      <li key={i} className="flex gap-2 text-text">
-                        <span className="text-primary">→</span> {h}
-                      </li>
-                    ))}
-                  </ul>
+                    {portfolio.hero.location}
+                  </span>
+                )}
+                {portfolio.hero.yearsOfExperience > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 3" />
+                    </svg>
+                    {portfolio.hero.yearsOfExperience}+ Years Experience
+                  </span>
+                )}
+                {portfolio.contact?.email && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface border border-border rounded-full px-3 py-1.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="m3 7 9 6 9-6" />
+                    </svg>
+                    {portfolio.contact.email}
+                  </span>
                 )}
               </div>
-            )}
 
-            {active === "skills" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">Skills</h2>
-                {portfolio.skills.length === 0 && (
-                  <p className="text-textMuted">No skills added yet.</p>
-                )}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {portfolio.skills.map((s, i) => (
-                    <div key={i} className="bg-surface border border-border rounded-lg p-4">
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>{s.name}</span>
-                        <span className="text-textMuted mono">{s.level}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${s.level}%` }}
-                        />
-                      </div>
-                    </div>
+              {highlightTeaser.length > 0 && (
+                <ul className="mt-6 space-y-1.5 inline-block text-left">
+                  {highlightTeaser.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-text">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                        <path d="m5 13 4 4L19 7" />
+                      </svg>
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {topSkills.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-6">
+                  {topSkills.map((s, i) => (
+                    <span key={i} className="mono text-xs px-2.5 py-1 rounded-full bg-surfaceAlt text-accent border border-border">
+                      {s.name}
+                    </span>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {active === "projects" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">Projects</h2>
-                {portfolio.projects.length === 0 && (
-                  <p className="text-textMuted">No projects added yet.</p>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-8">
+                <button
+                  onClick={() => scrollToSection("projects")}
+                  className="px-6 py-3 rounded-lg bg-primary text-white hover:bg-primaryAlt transition font-medium"
+                >
+                  View Projects
+                </button>
+                <button
+                  onClick={() => scrollToSection("contact")}
+                  className="px-6 py-3 rounded-lg border border-border text-text hover:border-primary transition font-medium"
+                >
+                  Hire Me
+                </button>
+                {portfolio.hero.resumeLink && (
+                  <a
+                    href={portfolio.hero.resumeLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-6 py-3 rounded-lg text-primary hover:underline transition font-medium"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                      <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
+                    </svg>
+                    Download Resume
+                  </a>
                 )}
-                <div className="grid sm:grid-cols-2 gap-5">
-                  {portfolio.projects.map((p, i) => (
-                    <div key={i} className="bg-surface border border-border rounded-lg overflow-hidden">
-                      {p.image && (
-                        <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
-                      )}
-                      <div className="p-5">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-display font-semibold">{p.title}</h3>
-                          {p.featured && (
-                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-textMuted text-sm mb-3">{p.description}</p>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {p.techStack?.map((t, idx) => (
-                            <span
-                              key={idx}
-                              className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex gap-4 text-sm">
-                          {p.liveLink && (
-                            <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                              Live
-                            </a>
-                          )}
-                          {p.githubLink && (
-                            <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                              GitHub
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
-            )}
 
-            {active === "experience" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">Experience</h2>
-                {portfolio.experience.length === 0 && (
-                  <p className="text-textMuted">No experience added yet.</p>
-                )}
-                <div className="space-y-6">
-                  {portfolio.experience.map((e, i) => (
-                    <div key={i} className="border-l-2 border-primary pl-4">
-                      <h3 className="font-semibold">{e.role} · {e.company}</h3>
-                      <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
-                      <p className="text-textMuted text-sm">{e.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {active === "education" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">Education</h2>
-                {portfolio.education.length === 0 && (
-                  <p className="text-textMuted">No education added yet.</p>
-                )}
-                <div className="space-y-6">
-                  {portfolio.education.map((e, i) => (
-                    <div key={i} className="border-l-2 border-primary pl-4">
-                      <h3 className="font-semibold">{e.degree} · {e.institute}</h3>
-                      <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
-                      <p className="text-textMuted text-sm">{e.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {active === "contact" && (
-              <div>
-                <h2 className="font-display text-3xl font-semibold mb-6">Contact</h2>
-                <div className="space-y-2 text-textMuted">
-                  {portfolio.contact.email && <p>Email: {portfolio.contact.email}</p>}
-                  {portfolio.contact.phone && <p>Phone: {portfolio.contact.phone}</p>}
-                  {portfolio.contact.location && <p>Location: {portfolio.contact.location}</p>}
-                </div>
-                <div className="flex gap-4 mt-5">
+              {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
+                <div className="flex items-center justify-center md:justify-start gap-3 mt-7">
                   {Object.entries(portfolio.contact.socialLinks || {}).map(
                     ([key, val]) =>
                       val && (
@@ -676,17 +469,275 @@ const Portfolio = ({ slugProp }) => {
                           href={val}
                           target="_blank"
                           rel="noreferrer"
-                          className="mono text-sm text-primary hover:underline capitalize"
+                          className="w-9 h-9 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
                         >
-                          {key}
+                          {SOCIAL_ICONS[key] || key[0].toUpperCase()}
                         </a>
                       )
                   )}
                 </div>
-              </div>
+              )}
+            </div>
+
+            {/* Right column: interactive developer visual */}
+            <div className="relative flex justify-center md:justify-end py-10 md:py-0">
+              <div className="absolute -top-8 -left-8 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-8 -right-4 w-56 h-56 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
+
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.6 }}
+                className="relative"
+              >
+                <CodeVisual owner={owner} portfolio={portfolio} />
+
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="absolute -top-5 -left-5 flex items-center gap-2 bg-bg border border-border rounded-full pl-1.5 pr-3 py-1.5 shadow-lg"
+                >
+                  <div className="w-7 h-7 rounded-full overflow-hidden bg-surfaceAlt flex items-center justify-center shrink-0">
+                    {portfolio.hero.profileImage ? (
+                      <img src={portfolio.hero.profileImage} alt={owner.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-display text-[10px] font-semibold text-primary">{initials}</span>
+                    )}
+                  </div>
+                  <span className="text-xs font-medium">{owner.name}</span>
+                </motion.div>
+
+                {portfolio.hero.stats?.[0] && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5, duration: 0.5 }}
+                    className="absolute -right-8 top-10 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                  >
+                    <p className="font-display text-xl font-semibold text-primary">
+                      {portfolio.hero.stats[0].value}
+                    </p>
+                    <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
+                      {portfolio.hero.stats[0].label}
+                    </p>
+                  </motion.div>
+                )}
+
+                {portfolio.hero.stats?.[1] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6, duration: 0.5 }}
+                    className="absolute -right-6 -bottom-6 bg-bg border border-border rounded-xl px-4 py-3 shadow-lg"
+                  >
+                    <p className="font-display text-xl font-semibold text-primary">
+                      {portfolio.hero.stats[1].value}
+                    </p>
+                    <p className="text-[10px] text-textMuted mono uppercase tracking-wide">
+                      {portfolio.hero.stats[1].label}
+                    </p>
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>
+          </div>
+
+          {marqueeItems.length > 0 && (
+            <div className="mt-16">
+              <TechMarquee items={marqueeItems} />
+            </div>
+          )}
+
+          {portfolio.hero.stats?.length > 0 && (
+            <div className="mt-10 pt-10 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+              {portfolio.hero.stats.map((s, i) => (
+                <div key={i}>
+                  <p className="font-display text-3xl font-semibold text-primary">{s.value}</p>
+                  <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-center mt-14">
+            <motion.button
+              onClick={() => scrollToSection("about")}
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+              className="text-textMuted hover:text-primary transition flex flex-col items-center gap-1"
+              aria-label="Scroll to about section"
+            >
+              <span className="text-[10px] mono uppercase tracking-widest">Scroll</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                <path d="M12 5v14M5 12l7 7 7-7" />
+              </svg>
+            </motion.button>
+          </div>
+        </section>
+
+        {/* ---------- ABOUT ---------- */}
+        <section id="about" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">About</h2>
+            <p className="text-textMuted leading-relaxed whitespace-pre-line">
+              {portfolio.about.bio || "No bio added yet."}
+            </p>
+            {portfolio.about.highlights?.length > 0 && (
+              <ul className="mt-6 space-y-2">
+                {portfolio.about.highlights.map((h, i) => (
+                  <li key={i} className="flex gap-2 text-text">
+                    <span className="text-primary">→</span> {h}
+                  </li>
+                ))}
+              </ul>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </Reveal>
+        </section>
+
+        {/* ---------- SKILLS ---------- */}
+        <section id="skills" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">Skills</h2>
+            {portfolio.skills.length === 0 && (
+              <p className="text-textMuted">No skills added yet.</p>
+            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              {portfolio.skills.map((s, i) => (
+                <div key={i} className="bg-surface border border-border rounded-lg p-4">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>{s.name}</span>
+                    <span className="text-textMuted mono">{s.level}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${s.level}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ---------- PROJECTS ---------- */}
+        <section id="projects" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">Projects</h2>
+            {portfolio.projects.length === 0 && (
+              <p className="text-textMuted">No projects added yet.</p>
+            )}
+            <div className="grid sm:grid-cols-2 gap-5">
+              {portfolio.projects.map((p, i) => (
+                <div key={i} className="bg-surface border border-border rounded-lg overflow-hidden">
+                  {p.image && (
+                    <img src={p.image} alt={p.title} className="w-full h-40 object-cover" />
+                  )}
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-display font-semibold">{p.title}</h3>
+                      {p.featured && (
+                        <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
+                          Featured
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-textMuted text-sm mb-3">{p.description}</p>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {p.techStack?.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="mono text-xs px-2 py-0.5 rounded bg-surfaceAlt text-accent"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-4 text-sm">
+                      {p.liveLink && (
+                        <a href={p.liveLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                          Live
+                        </a>
+                      )}
+                      {p.githubLink && (
+                        <a href={p.githubLink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                          GitHub
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ---------- EXPERIENCE ---------- */}
+        <section id="experience" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">Experience</h2>
+            {portfolio.experience.length === 0 && (
+              <p className="text-textMuted">No experience added yet.</p>
+            )}
+            <div className="space-y-6">
+              {portfolio.experience.map((e, i) => (
+                <div key={i} className="border-l-2 border-primary pl-4">
+                  <h3 className="font-semibold">{e.role} · {e.company}</h3>
+                  <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
+                  <p className="text-textMuted text-sm">{e.description}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ---------- EDUCATION ---------- */}
+        <section id="education" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">Education</h2>
+            {portfolio.education.length === 0 && (
+              <p className="text-textMuted">No education added yet.</p>
+            )}
+            <div className="space-y-6">
+              {portfolio.education.map((e, i) => (
+                <div key={i} className="border-l-2 border-primary pl-4">
+                  <h3 className="font-semibold">{e.degree} · {e.institute}</h3>
+                  <p className="mono text-xs text-textMuted mb-2">{e.duration}</p>
+                  <p className="text-textMuted text-sm">{e.description}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ---------- CONTACT ---------- */}
+        <section id="contact" className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full border-t border-border">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold mb-6">Contact</h2>
+            <div className="space-y-2 text-textMuted">
+              {portfolio.contact.email && <p>Email: {portfolio.contact.email}</p>}
+              {portfolio.contact.phone && <p>Phone: {portfolio.contact.phone}</p>}
+              {portfolio.contact.location && <p>Location: {portfolio.contact.location}</p>}
+            </div>
+            <div className="flex gap-4 mt-5">
+              {Object.entries(portfolio.contact.socialLinks || {}).map(
+                ([key, val]) =>
+                  val && (
+                    <a
+                      key={key}
+                      href={val}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mono text-sm text-primary hover:underline capitalize"
+                    >
+                      {key}
+                    </a>
+                  )
+              )}
+            </div>
+          </Reveal>
+        </section>
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useId } from "react";
 import { useParams, Link } from "react-router-dom";
-import { AnimatePresence, motion, animate, useMotionValue } from "framer-motion";
+import { AnimatePresence, motion, animate, useMotionValue, useSpring, useInView } from "framer-motion";
 import api from "../api/axios.js";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
 
@@ -181,36 +181,125 @@ const skillLevelMeta = (level = 0) => {
   return { label: "Familiar", className: "bg-surfaceAlt text-textMuted" };
 };
 
-// Premium skill card: name + level bar, driven entirely by the skill's own
+// Small count-up number used by the skills stat strip — animates from 0 to
+// `value` once it scrolls into view. Purely presentational, no invented data.
+const AnimatedStat = ({ value, label, suffix = "" }) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, value, {
+      duration: 1.3,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, value]);
+
+  return (
+    <div ref={ref} className="text-center">
+      <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent tabular-nums">
+        {display}
+        {suffix}
+      </p>
+      <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{label}</p>
+    </div>
+  );
+};
+
+// Signature skill card for the Skills page: a glowing progress ring that
+// draws itself in on scroll with a count-up percentage, sitting on a card
+// that tilts gently toward the cursor. Driven entirely by the skill's own
 // name/level/category fields — nothing computed or invented beyond that.
-const SkillCard = ({ skill, delay = 0 }) => {
+const RadialSkillCard = ({ skill, delay = 0 }) => {
   const level = skill.level ?? 0;
   const meta = skillLevelMeta(level);
+  const gradId = useId();
+
+  const cardRef = useRef(null);
+  const inView = useInView(cardRef, { once: true, amount: 0.4 });
+  const [display, setDisplay] = useState(0);
+
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const springX = useSpring(rotateX, { stiffness: 180, damping: 16 });
+  const springY = useSpring(rotateY, { stiffness: 180, damping: 16 });
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, level, {
+      duration: 1.1,
+      delay,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, level, delay]);
+
+  const handleMouseMove = (e) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rotateY.set(px * 12);
+    rotateX.set(-py * 12);
+  };
+  const handleMouseLeave = () => {
+    rotateX.set(0);
+    rotateY.set(0);
+  };
+
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (display / 100) * circumference;
+
   return (
-    <Reveal
-      delay={delay}
-      className="group relative bg-surface border border-border rounded-2xl p-5 overflow-hidden hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all"
+    <motion.div
+      ref={cardRef}
+      initial={{ opacity: 0, y: 26 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ rotateX: springX, rotateY: springY, transformPerspective: 700 }}
+      className="group relative bg-surface border border-border rounded-2xl p-5 flex items-center gap-4 overflow-hidden hover:border-primary/50 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-colors"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-accent/0 group-hover:from-primary/5 group-hover:to-accent/5 transition-colors duration-300" />
-      <div className="relative">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h4 className="font-semibold text-sm truncate">{skill.name}</h4>
-          <span className="mono text-xs text-textMuted shrink-0">{level}%</span>
+      <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+
+      <div className="relative w-16 h-16 shrink-0">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="8" />
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--color-primary)" />
+              <stop offset="100%" stopColor="var(--color-accent)" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="mono text-xs font-semibold tabular-nums">{display}%</span>
         </div>
-        <div className="h-2.5 rounded-full bg-surfaceAlt overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            whileInView={{ width: `${level}%` }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.9, delay, ease: "easeOut" }}
-            className="h-full bg-gradient-to-r from-primary to-accent rounded-full relative"
-          >
-            <span className="absolute inset-0 bg-white/25 [mask-image:linear-gradient(90deg,transparent,black,transparent)] w-8 -translate-x-8 group-hover:translate-x-[300%] transition-transform duration-1000 ease-out" />
-          </motion.div>
-        </div>
-        <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-3 ${meta.className}`}>{meta.label}</span>
       </div>
-    </Reveal>
+
+      <div className="relative min-w-0">
+        <h4 className="font-semibold text-sm truncate">{skill.name}</h4>
+        <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-1.5 ${meta.className}`}>{meta.label}</span>
+      </div>
+    </motion.div>
   );
 };
 
@@ -372,6 +461,11 @@ const Portfolio = ({ slugProp }) => {
   const skillCategories = ["All", ...Object.keys(skillGroups)];
   const visibleSkillGroups =
     skillFilter === "All" ? Object.entries(skillGroups) : Object.entries(skillGroups).filter(([cat]) => cat === skillFilter);
+  const skillCount = portfolio.skills?.length || 0;
+  const skillCategoryCount = Object.keys(skillGroups).length;
+  const avgSkillLevel = skillCount
+    ? Math.round(portfolio.skills.reduce((sum, s) => sum + (s.level || 0), 0) / skillCount)
+    : 0;
 
   const openLightbox = (project, index = 0) => {
     setLightboxProject(project);
@@ -885,8 +979,8 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "skills" && (
-              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
-                <div className="pointer-events-none absolute -top-10 left-0 w-72 h-72 rounded-full bg-accent/10 blur-[100px] -z-10" />
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
+                <AuroraBackground />
 
                 <Reveal className="max-w-2xl">
                   <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -902,9 +996,27 @@ const Portfolio = ({ slugProp }) => {
 
                 {portfolio.skills.length > 0 && (
                   <>
+                    {/* Stat strip — real numbers derived from the skill data, counting up on view */}
+                    <Reveal
+                      delay={0.05}
+                      className="relative mt-10 grid grid-cols-3 gap-4 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl px-6 py-7 overflow-hidden"
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.06]"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(var(--color-text) 1px, transparent 1px), linear-gradient(90deg, var(--color-text) 1px, transparent 1px)",
+                          backgroundSize: "28px 28px",
+                        }}
+                      />
+                      <AnimatedStat value={skillCount} label={`Skill${skillCount === 1 ? "" : "s"}`} />
+                      <AnimatedStat value={skillCategoryCount} label={`Categor${skillCategoryCount === 1 ? "y" : "ies"}`} />
+                      <AnimatedStat value={avgSkillLevel} suffix="%" label="Avg. Proficiency" />
+                    </Reveal>
+
                     {/* Category filter pills — built only from categories present in the skill data */}
                     {skillCategories.length > 2 && (
-                      <div className="flex flex-wrap gap-2 mt-10">
+                      <div className="flex flex-wrap gap-2 mt-8">
                         {skillCategories.map((cat) => (
                           <button
                             key={cat}
@@ -923,28 +1035,44 @@ const Portfolio = ({ slugProp }) => {
                               />
                             )}
                             {cat}
+                            {cat !== "All" && (
+                              <span className={`ml-1.5 mono text-[10px] ${skillFilter === cat ? "text-white/80" : "text-textMuted/70"}`}>
+                                {skillGroups[cat].length}
+                              </span>
+                            )}
                           </button>
                         ))}
                       </div>
                     )}
 
-                    {/* Skill cards, grouped by category */}
-                    <div key={skillFilter} className="space-y-10 mt-10">
-                      {visibleSkillGroups.map(([category, items], gi) => (
-                        <div key={category}>
-                          <div className="flex items-center gap-3 mb-5">
-                            <h3 className="font-display text-sm uppercase tracking-widest text-primary">{category}</h3>
-                            <span className="flex-1 h-px bg-border" />
-                            <span className="mono text-[10px] text-textMuted">{items.length} skill{items.length > 1 ? "s" : ""}</span>
+                    {/* Skill cards, grouped by category — glowing radial rings that tilt toward the cursor */}
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={skillFilter}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="space-y-10 mt-10"
+                      >
+                        {visibleSkillGroups.map(([category, items], gi) => (
+                          <div key={category}>
+                            <div className="flex items-center gap-3 mb-5">
+                              <h3 className="font-display text-sm uppercase tracking-widest text-primary">{category}</h3>
+                              <span className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
+                              <span className="mono text-[10px] text-textMuted">
+                                {items.length} skill{items.length > 1 ? "s" : ""}
+                              </span>
+                            </div>
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {items.map((s, i) => (
+                                <RadialSkillCard key={s.name + i} skill={s} delay={gi * 0.04 + i * 0.05} />
+                              ))}
+                            </div>
                           </div>
-                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {items.map((s, i) => (
-                              <SkillCard key={s.name + i} skill={s} delay={gi * 0.04 + i * 0.05} />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </motion.div>
+                    </AnimatePresence>
                   </>
                 )}
               </section>

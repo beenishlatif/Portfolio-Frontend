@@ -1417,27 +1417,7 @@ const Portfolio = ({ slugProp }) => {
 
                 {experienceList.length > 0 && (
                   <>
-                    {/* Quick stats strip */}
-                    <div className="grid grid-cols-3 gap-3 md:gap-5 mt-10 mb-14">
-                      {[
-                        { label: experienceList.length === 1 ? "Role" : "Roles", value: experienceList.length },
-                        { label: uniqueCompanies.length === 1 ? "Company" : "Companies", value: uniqueCompanies.length },
-                        { label: "Key Achievements", value: totalAchievements },
-                      ].map((s, i) => (
-                        <Reveal
-                          key={s.label}
-                          delay={i * 0.06}
-                          className="bg-surface border border-border rounded-2xl px-4 py-5 md:p-6 text-center hover:border-primary/40 transition"
-                        >
-                          <p className="font-display text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
-                            {s.value}
-                          </p>
-                          <p className="mono text-[10px] md:text-xs text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
-                        </Reveal>
-                      ))}
-                    </div>
-
-                    <div className="relative pl-9 md:pl-10">
+                    <div className="relative pl-9 md:pl-10 mt-12">
                       <div className="absolute left-[9px] md:left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
                       <div className="space-y-8">
                         {experienceList.map((e, i) => (

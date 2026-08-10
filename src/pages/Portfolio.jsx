@@ -480,7 +480,7 @@ const Portfolio = ({ slugProp }) => {
       } else if (e.key === "ArrowRight") {
         setLightboxIndex((i) => (lightboxMedia.length ? (i + 1) % lightboxMedia.length : 0));
       } else if (e.key === "ArrowLeft") {
-        setLightboxIndex((i) => (lightboxMedia.length ? (i - 1 + lightboxMedia.length) % lightboxMedia.length : 0));
+        setLightboxIndex((i) => (i - 1 + (lightboxMedia.length || 1)) % (lightboxMedia.length || 1));
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -1101,7 +1101,15 @@ const Portfolio = ({ slugProp }) => {
                   <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
                     <span className="w-6 h-px bg-primary" /> Selected Work
                   </p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Projects</h2>
+                  <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+                    <h2 className="font-display text-3xl md:text-4xl font-bold">Projects</h2>
+                    {portfolio.projects.length > 0 && (
+                      <span className="mono text-[11px] text-textMuted border border-border rounded-full px-3 py-1 mb-1">
+                        {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
+                        {projectFilter !== "All" && <span className="text-primary"> · {projectFilter}</span>}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-textMuted text-sm md:text-base max-w-xl">
                     A look at what I've built — click any project to explore screenshots and demo videos.
                   </p>
@@ -1115,12 +1123,19 @@ const Portfolio = ({ slugProp }) => {
                       <button
                         key={t}
                         onClick={() => setProjectFilter(t)}
-                        className={`mono text-xs px-3.5 py-1.5 rounded-full border transition ${
+                        className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
                           projectFilter === t
-                            ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                            ? "text-white border-transparent"
                             : "border-border text-textMuted hover:border-primary/50 hover:text-text"
                         }`}
                       >
+                        {projectFilter === t && (
+                          <motion.span
+                            layoutId="project-filter-pill"
+                            className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                          />
+                        )}
                         {t}
                       </button>
                     ))}
@@ -1130,109 +1145,137 @@ const Portfolio = ({ slugProp }) => {
                 {/* Unified project grid — clean, consistent card size, no more
                     long side-by-side "spotlight" layout. Featured just gets a badge. */}
                 {filteredProjects.length > 0 && (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
-                    {filteredProjects.map((p, i) => {
-                      const media = getProjectMedia(p);
-                      const cover = media[0];
-                      return (
-                        <TiltCard
-                          key={`${p.title}-${i}`}
-                          delay={Math.min(i * 0.05, 0.4)}
-                          className="group relative bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.4)] transition-[border-color,box-shadow]"
-                        >
-                          {p.featured && (
-                            <span className="absolute top-3 left-3 z-10 mono text-[10px] px-2.5 py-1 rounded-full bg-gradient-to-r from-primary to-accent text-white flex items-center gap-1 shadow-lg">
-                              <Sparkles className="w-3 h-3" /> Featured
-                            </span>
-                          )}
-
-                          <button
-                            onClick={() => (media.length > 0 ? openLightbox(p, 0) : null)}
-                            disabled={media.length === 0}
-                            className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
+                  <motion.div
+                    layout
+                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10"
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {filteredProjects.map((p, i) => {
+                        const media = getProjectMedia(p);
+                        const cover = media[0];
+                        return (
+                          <TiltCard
+                            key={`${p.title}-${i}`}
+                            delay={Math.min(i * 0.06, 0.4)}
+                            className="group relative bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.4)] transition-[border-color,box-shadow]"
                           >
-                            {cover ? (
-                              cover.type === "video" ? (
-                                <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
-                                  <PlayCircle className="w-10 h-10" />
-                                </div>
+                            {p.featured && (
+                              <motion.span
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.15 }}
+                                className="absolute top-3 left-3 z-10 mono text-[10px] px-2.5 py-1 rounded-full bg-gradient-to-r from-primary to-accent text-white flex items-center gap-1 shadow-lg"
+                              >
+                                <Sparkles className="w-3 h-3" /> Featured
+                              </motion.span>
+                            )}
+
+                            {/* Diagonal shine sweep on hover — purely decorative polish */}
+                            <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+                              <div className="absolute -inset-y-10 -left-1/2 w-1/3 rotate-12 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:translate-x-[420%] transition-all duration-[1100ms] ease-out" />
+                            </div>
+
+                            <button
+                              onClick={() => (media.length > 0 ? openLightbox(p, 0) : null)}
+                              disabled={media.length === 0}
+                              className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
+                            >
+                              {cover ? (
+                                cover.type === "video" ? (
+                                  <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
+                                    <PlayCircle className="w-10 h-10" />
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* Blurred backdrop fills the frame so the real image can sit
+                                        fully inside without ever being cropped/cut off. */}
+                                    <img
+                                      src={cover.src}
+                                      alt=""
+                                      aria-hidden="true"
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <img
+                                      src={cover.src}
+                                      alt={p.title}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                  </>
+                                )
                               ) : (
-                                <img
-                                  src={cover.src}
-                                  alt={p.title}
-                                  className="w-full h-full object-cover group-hover:scale-[1.06] transition duration-500"
-                                />
-                              )
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-textMuted">
-                                <ImageIcon className="w-8 h-8" />
-                              </div>
-                            )}
+                                <div className="w-full h-full flex items-center justify-center text-textMuted">
+                                  <ImageIcon className="w-8 h-8" />
+                                </div>
+                              )}
 
-                            {media.length > 1 && (
-                              <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur flex items-center gap-1">
-                                <Images className="w-3 h-3" />
-                                {media.length}
-                              </span>
-                            )}
-
-                            {media.length > 0 && (
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
-                                <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Eye className="w-4 h-4" /> View Gallery
+                              {media.length > 1 && (
+                                <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur flex items-center gap-1">
+                                  <Images className="w-3 h-3" />
+                                  {media.length}
                                 </span>
-                              </div>
-                            )}
-                          </button>
+                              )}
 
-                          <div className="p-5">
-                            <h3 className="font-display font-semibold mb-1.5">{p.title}</h3>
-                            <p className="text-textMuted text-sm leading-relaxed mb-4 line-clamp-2">{p.description}</p>
-
-                            {p.techStack?.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mb-4">
-                                {p.techStack.slice(0, 4).map((t, idx) => (
-                                  <span key={idx} className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-accent">
-                                    {t}
+                              {media.length > 0 && (
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                                  <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
+                                    <Eye className="w-4 h-4" /> View Gallery
                                   </span>
-                                ))}
-                                {p.techStack.length > 4 && (
-                                  <span className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-textMuted">
-                                    +{p.techStack.length - 4}
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </button>
 
-                            {(p.liveLink || p.githubLink) && (
-                              <div className="flex items-center gap-4 pt-3 border-t border-border">
-                                {p.liveLink && (
-                                  <a
-                                    href={p.liveLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5" /> Live Demo
-                                  </a>
-                                )}
-                                {p.githubLink && (
-                                  <a
-                                    href={p.githubLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
-                                  >
-                                    <GithubMark className="w-3.5 h-3.5" /> Code
-                                  </a>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </TiltCard>
-                      );
-                    })}
-                  </div>
+                            <div className="p-5">
+                              <h3 className="font-display font-semibold mb-1.5 group-hover:text-primary transition-colors">{p.title}</h3>
+                              <p className="text-textMuted text-sm leading-relaxed mb-4 line-clamp-2">{p.description}</p>
+
+                              {p.techStack?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-4">
+                                  {p.techStack.slice(0, 4).map((t, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-accent group-hover:bg-accent/10 transition-colors"
+                                    >
+                                      {t}
+                                    </span>
+                                  ))}
+                                  {p.techStack.length > 4 && (
+                                    <span className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-textMuted">
+                                      +{p.techStack.length - 4}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {(p.liveLink || p.githubLink) && (
+                                <div className="flex items-center gap-4 pt-3 border-t border-border">
+                                  {p.liveLink && (
+                                    <a
+                                      href={p.liveLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" /> Live Demo
+                                    </a>
+                                  )}
+                                  {p.githubLink && (
+                                    <a
+                                      href={p.githubLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
+                                    >
+                                      <GithubMark className="w-3.5 h-3.5" /> Code
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </TiltCard>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </motion.div>
                 )}
 
                 {/* Lightbox: shows every screenshot that was added + the demo video,

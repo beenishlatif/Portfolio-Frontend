@@ -731,81 +731,114 @@ const Portfolio = ({ slugProp }) => {
                 </a>
               )}
 
-              {/* Theme switcher — premium pill button: soft glass surface, a
-                  live gradient swatch, and a small palette glyph, opening
-                  into a proper colour picker. Replaces the old spinning ring. */}
+              {/* Theme switcher — premium circular trigger with a soft glowing ring that
+                  matches the active theme's gradient, opening into a polished glass
+                  colour-picker panel with a gradient header. */}
               <div className="relative" ref={themeMenuRef}>
                 <button
                   onClick={() => setThemeMenuOpen((v) => !v)}
                   aria-label="Change theme"
                   aria-expanded={themeMenuOpen}
-                  className={`group relative flex items-center gap-2 pl-2 pr-3 h-9 rounded-full border transition-all ${
-                    themeMenuOpen
-                      ? "border-primary/60 bg-surface shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-                      : "border-border bg-surface/70 backdrop-blur hover:border-primary/40 hover:bg-surface"
+                  className={`group relative flex items-center justify-center w-9 h-9 rounded-full transition-transform duration-300 ${
+                    themeMenuOpen ? "scale-95" : "hover:scale-105"
                   }`}
                 >
-                  <span className="relative w-5 h-5 rounded-full overflow-hidden shrink-0 ring-1 ring-white/15 shadow-inner">
-                    <span
-                      className="absolute inset-0"
-                      style={{
-                        background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
-                      }}
-                    />
-                  </span>
-                  <Palette className="w-3.5 h-3.5 text-textMuted group-hover:text-primary transition-colors" />
                   <span
-                    className={`w-3.5 h-3.5 transition-transform duration-200 text-textMuted ${themeMenuOpen ? "rotate-180" : ""}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
+                    className="absolute inset-0 rounded-full opacity-90 group-hover:opacity-100 transition-opacity animate-[spin_6s_linear_infinite]"
+                    style={{
+                      background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
+                    }}
+                  />
+                  <span
+                    className={`absolute inset-0 rounded-full blur-md transition-opacity duration-300 ${
+                      themeMenuOpen ? "opacity-70" : "opacity-0 group-hover:opacity-60"
+                    }`}
+                    style={{
+                      background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
+                    }}
+                  />
+                  <span className="absolute inset-[3px] rounded-full bg-bg/95 backdrop-blur flex items-center justify-center">
+                    <Palette className="w-4 h-4 text-text group-hover:text-primary transition-colors" strokeWidth={2} />
                   </span>
+                  <span
+                    className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-bg shadow-sm"
+                    style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                  />
                 </button>
 
                 <AnimatePresence>
                   {themeMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                      initial={{ opacity: 0, y: -10, scale: 0.94 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute right-0 mt-3 w-60 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55)] p-4 z-40 overflow-hidden"
+                      exit={{ opacity: 0, y: -10, scale: 0.94 }}
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute right-0 mt-3 w-72 rounded-3xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_28px_60px_-18px_rgba(0,0,0,0.6)] overflow-hidden z-40"
                     >
+                      {/* Gradient header */}
                       <div
-                        className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[50px] opacity-40"
-                        style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
-                      />
-                      <div className="relative flex items-center justify-between mb-3 px-0.5">
-                        <p className="mono text-[10px] text-primary uppercase tracking-widest">Appearance</p>
-                        <span className="mono text-[10px] text-textMuted">{activeThemeMeta?.label}</span>
+                        className="relative px-5 py-4 overflow-hidden"
+                        style={{ background: `linear-gradient(135deg, var(--color-primary), var(--color-accent))` }}
+                      >
+                        <div
+                          className="pointer-events-none absolute inset-0 opacity-20"
+                          style={{
+                            backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+                            backgroundSize: "14px 14px",
+                          }}
+                        />
+                        <div className="relative flex items-center gap-2.5">
+                          <span className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                            <Palette className="w-4 h-4 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-white text-sm font-semibold font-display leading-tight">Appearance</p>
+                            <p className="text-white/70 text-[11px] mono">{activeThemeMeta?.label} active</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="relative grid grid-cols-4 gap-3">
-                        {THEMES.map((t) => (
-                          <button
-                            key={t.id}
-                            onClick={() => {
-                              setTheme(t.id);
-                              setThemeMenuOpen(false);
-                            }}
-                            title={t.label}
-                            className="group flex flex-col items-center gap-1.5"
-                          >
-                            <span
-                              className={`relative w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all ${
-                                theme === t.id
-                                  ? "border-primary scale-110 shadow-[0_0_0_3px_rgba(99,102,241,0.2)]"
-                                  : "border-transparent group-hover:scale-105 group-hover:border-border"
-                              }`}
-                              style={{ background: t.swatch || "var(--color-primary)" }}
+
+                      <div className="p-4">
+                        <div className="grid grid-cols-4 gap-3">
+                          {THEMES.map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => {
+                                setTheme(t.id);
+                                setThemeMenuOpen(false);
+                              }}
+                              title={t.label}
+                              className="group/swatch flex flex-col items-center gap-1.5"
                             >
-                              {theme === t.id && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
-                            </span>
-                            <span className="text-[9px] text-textMuted group-hover:text-text transition truncate max-w-[3.25rem] text-center">
-                              {t.label}
-                            </span>
-                          </button>
-                        ))}
+                              <span
+                                className={`relative w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                                  theme === t.id
+                                    ? "ring-2 ring-primary ring-offset-2 ring-offset-surface scale-105 shadow-[0_6px_18px_-6px_var(--color-primary)]"
+                                    : "ring-1 ring-border group-hover/swatch:ring-2 group-hover/swatch:ring-primary/40 group-hover/swatch:scale-105"
+                                }`}
+                                style={{ background: t.swatch || "var(--color-primary)" }}
+                              >
+                                {theme === t.id && (
+                                  <motion.span
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                                    className="w-5 h-5 rounded-full bg-white/95 flex items-center justify-center"
+                                  >
+                                    <Check className="w-3 h-3 text-primary" strokeWidth={3} />
+                                  </motion.span>
+                                )}
+                              </span>
+                              <span
+                                className={`text-[10px] truncate max-w-[3.5rem] text-center transition-colors ${
+                                  theme === t.id ? "text-primary font-medium" : "text-textMuted group-hover/swatch:text-text"
+                                }`}
+                              >
+                                {t.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -1663,7 +1696,7 @@ const Portfolio = ({ slugProp }) => {
                     y: { duration: 9, repeat: Infinity, ease: "easeInOut" },
                     rotate: { duration: 9, repeat: Infinity, ease: "easeInOut" },
                   }}
-                  className="pointer-events-none absolute top-10 right-6 md:right-16 text-primary/25 -z-10"
+                  className="pointer-events-none absolute top-10 right-6 md:right-16 text-primary/25 z-10"
                 >
                   <GraduationCap className="w-40 h-40 md:w-56 md:h-56" strokeWidth={1} />
                 </motion.div>

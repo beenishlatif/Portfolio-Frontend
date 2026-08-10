@@ -13,7 +13,6 @@ const TABS = [
   { id: "projects", label: "Projects" },
   { id: "experience", label: "Experience" },
   { id: "education", label: "Education" },
-  { id: "techstack", label: "Tech Stack" },
   { id: "contact", label: "Contact" },
 ];
 
@@ -733,19 +732,6 @@ const AdminDashboard = () => {
                   </div>
                 ))}
                 <button onClick={() => addListItem("education", { university: "", degree: "", fieldOfStudy: "", duration: "", gpa: "", description: "" })} className="text-sm text-primary hover:underline">+ Add Education</button>
-              </div>
-            )}
-
-            {tab === "techstack" && (
-              <div className={cardClass}>
-                <p className={cardTitleClass}>Tech Stack Marquee</p>
-                <p className={cardHintClass}>Scrolling strip of technologies shown right under the hero.</p>
-                <input
-                  className={inputClass}
-                  placeholder="React, Node.js, MongoDB, Express, Tailwind CSS"
-                  value={form.techStack?.join(", ") || ""}
-                  onChange={(e) => setForm((prev) => ({ ...prev, techStack: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) }))}
-                />
               </div>
             )}
 

@@ -11,6 +11,16 @@ import {
   PlayCircle,
   Image as ImageIcon,
   X,
+  Briefcase,
+  GraduationCap,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Building2,
+  ArrowUpRight,
+  CheckCircle2,
+  Download,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -525,6 +535,36 @@ const Portfolio = ({ slugProp }) => {
     projectFilter === "All"
       ? portfolio.projects || []
       : (portfolio.projects || []).filter((p) => p.techStack?.includes(projectFilter));
+
+  // --- Derived data for the Experience / Education / Contact pages ---
+  const experienceList = portfolio.experience || [];
+  const educationList = portfolio.education || [];
+  const uniqueCompanies = Array.from(new Set(experienceList.map((e) => e.company).filter(Boolean)));
+  const totalAchievements = experienceList.reduce((sum, e) => sum + (e.achievements?.length || 0), 0);
+  const uniqueInstitutions = Array.from(new Set(educationList.map((e) => e.university).filter(Boolean)));
+  const contactCards = [
+    portfolio.contact.email && {
+      key: "email",
+      label: "Email",
+      value: portfolio.contact.email,
+      href: `mailto:${portfolio.contact.email}`,
+      icon: <Mail className="w-4 h-4" />,
+    },
+    portfolio.contact.phone && {
+      key: "phone",
+      label: "Phone",
+      value: portfolio.contact.phone,
+      href: `tel:${portfolio.contact.phone}`,
+      icon: <Phone className="w-4 h-4" />,
+    },
+    portfolio.contact.location && {
+      key: "location",
+      label: "Location",
+      value: portfolio.contact.location,
+      icon: <MapPin className="w-4 h-4" />,
+    },
+  ].filter(Boolean);
+  const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(([, val]) => Boolean(val));
 
   const openLightbox = (project) => {
     const media = getProjectMedia(project);
@@ -1360,134 +1400,392 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "experience" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
-                <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Career Path</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Experience</h2>
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
+                <div className="pointer-events-none absolute -top-16 left-0 w-80 h-80 rounded-full bg-primary/10 blur-[110px] -z-10" />
+
+                <Reveal className="max-w-2xl">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Career Path
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Experience</h2>
+                  <p className="text-textMuted text-sm md:text-base">
+                    A timeline of the roles, teams and projects that have shaped how I build software.
+                  </p>
                 </Reveal>
-                {portfolio.experience.length === 0 && <p className="text-textMuted">No experience added yet.</p>}
-                <div className="relative pl-8">
-                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
-                  <div className="space-y-10">
-                    {portfolio.experience.map((e, i) => (
-                      <Reveal key={i} delay={i * 0.05} className="relative">
-                        <span
-                          className={`absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-bg ${
-                            e.current ? "bg-primary shadow-[0_0_0_4px_rgba(var(--color-primary-rgb,99,102,241),0.15)]" : "bg-textMuted"
-                          }`}
-                        />
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-semibold">
-                            {e.role} · {e.company}
-                          </h3>
-                          {e.current && (
-                            <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary uppercase tracking-wide">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <p className="mono text-xs text-textMuted mb-2">
-                          {e.duration}
-                          {e.location && ` · ${e.location}`}
+
+                {experienceList.length === 0 && <p className="text-textMuted mt-10">No experience added yet.</p>}
+
+                {experienceList.length > 0 && (
+                  <>
+                    {/* Quick stats strip */}
+                    <div className="grid grid-cols-3 gap-3 md:gap-5 mt-10 mb-14">
+                      {[
+                        { label: experienceList.length === 1 ? "Role" : "Roles", value: experienceList.length },
+                        { label: uniqueCompanies.length === 1 ? "Company" : "Companies", value: uniqueCompanies.length },
+                        { label: "Key Achievements", value: totalAchievements },
+                      ].map((s, i) => (
+                        <Reveal
+                          key={s.label}
+                          delay={i * 0.06}
+                          className="bg-surface border border-border rounded-2xl px-4 py-5 md:p-6 text-center hover:border-primary/40 transition"
+                        >
+                          <p className="font-display text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                            {s.value}
+                          </p>
+                          <p className="mono text-[10px] md:text-xs text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
+                        </Reveal>
+                      ))}
+                    </div>
+
+                    <div className="relative pl-9 md:pl-10">
+                      <div className="absolute left-[9px] md:left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
+                      <div className="space-y-8">
+                        {experienceList.map((e, i) => (
+                          <Reveal key={i} delay={Math.min(i * 0.07, 0.35)} className="relative">
+                            <span
+                              className={`absolute -left-9 md:-left-10 top-6 w-[18px] h-[18px] rounded-full border-4 border-bg flex items-center justify-center ${
+                                e.current
+                                  ? "bg-primary shadow-[0_0_0_5px_rgba(var(--color-primary-rgb,99,102,241),0.15)]"
+                                  : "bg-textMuted"
+                              }`}
+                            />
+
+                            <div className="bg-surface border border-border rounded-2xl p-6 md:p-7 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-24px_rgba(0,0,0,0.4)] transition-all">
+                              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                <div className="flex items-start gap-3">
+                                  <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center shrink-0">
+                                    <Briefcase className="w-4.5 h-4.5" />
+                                  </span>
+                                  <div>
+                                    <h3 className="font-display font-semibold text-base md:text-lg leading-snug">{e.role}</h3>
+                                    <p className="flex items-center gap-1.5 text-sm text-primary font-medium mt-0.5">
+                                      <Building2 className="w-3.5 h-3.5" />
+                                      {e.company}
+                                    </p>
+                                  </div>
+                                </div>
+                                {e.current && (
+                                  <span className="mono text-[10px] px-2.5 py-1 rounded-full bg-primary/15 text-primary uppercase tracking-wide shrink-0">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-3 mb-4">
+                                {e.duration && (
+                                  <span className="inline-flex items-center gap-1.5 mono text-[11px] text-textMuted bg-surfaceAlt rounded-full px-3 py-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {e.duration}
+                                  </span>
+                                )}
+                                {e.location && (
+                                  <span className="inline-flex items-center gap-1.5 mono text-[11px] text-textMuted bg-surfaceAlt rounded-full px-3 py-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {e.location}
+                                  </span>
+                                )}
+                              </div>
+
+                              {e.description && (
+                                <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>
+                              )}
+
+                              {e.achievements?.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-border">
+                                  <p className="mono text-[10px] text-primary uppercase tracking-widest mb-2.5">Highlights</p>
+                                  <ul className="space-y-2">
+                                    {e.achievements.map((a, ai) => (
+                                      <li key={ai} className="flex gap-2.5 text-sm text-text">
+                                        <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                                        <span className="leading-relaxed">{a}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </Reveal>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Closing CTA */}
+                    <Reveal delay={0.1} className="mt-14 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-7 md:p-9 flex flex-col md:flex-row items-center justify-between gap-5">
+                      <div className="text-center md:text-left">
+                        <h3 className="font-display text-lg md:text-xl font-semibold mb-1.5">Want the full picture?</h3>
+                        <p className="text-textMuted text-sm">
+                          Take a look at the projects behind this experience, or grab a copy of my resume.
                         </p>
-                        <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>
-                        {e.achievements?.length > 0 && (
-                          <ul className="mt-3 space-y-1.5">
-                            {e.achievements.map((a, ai) => (
-                              <li key={ai} className="flex gap-2 text-sm text-text">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                                  <path d="m5 13 4 4L19 7" />
-                                </svg>
-                                {a}
-                              </li>
-                            ))}
-                          </ul>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+                        <button
+                          onClick={() => goToSection("projects")}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                        >
+                          View Projects
+                        </button>
+                        {portfolio.hero.resumeLink && (
+                          <a
+                            href={portfolio.hero.resumeLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
+                          >
+                            <Download className="w-4 h-4" /> Resume
+                          </a>
                         )}
-                      </Reveal>
-                    ))}
-                  </div>
-                </div>
+                      </div>
+                    </Reveal>
+                  </>
+                )}
               </section>
             )}
 
             {activeSection === "education" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
-                <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Academic Background</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-10">Education</h2>
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
+                <div className="pointer-events-none absolute -top-16 right-0 w-80 h-80 rounded-full bg-accent/10 blur-[110px] -z-10" />
+
+                <Reveal className="max-w-2xl">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Academic Background
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Education</h2>
+                  <p className="text-textMuted text-sm md:text-base">
+                    The formal foundation behind the skills I bring to every project.
+                  </p>
                 </Reveal>
-                {portfolio.education.length === 0 && <p className="text-textMuted">No education added yet.</p>}
-                <div className="grid sm:grid-cols-2 gap-5">
-                  {portfolio.education.map((e, i) => (
-                    <Reveal
-                      key={i}
-                      delay={i * 0.05}
-                      className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/40 transition"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-1">
-                        <h3 className="font-semibold">{e.university}</h3>
-                        {e.gpa && (
-                          <span className="mono text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">
-                            GPA {e.gpa}
-                          </span>
-                        )}
+
+                {educationList.length === 0 && <p className="text-textMuted mt-10">No education added yet.</p>}
+
+                {educationList.length > 0 && (
+                  <>
+                    {/* Quick stats strip */}
+                    <div className="grid grid-cols-2 gap-3 md:gap-5 mt-10 mb-14 max-w-md">
+                      {[
+                        { label: educationList.length === 1 ? "Degree" : "Degrees", value: educationList.length },
+                        { label: uniqueInstitutions.length === 1 ? "Institution" : "Institutions", value: uniqueInstitutions.length },
+                      ].map((s, i) => (
+                        <Reveal
+                          key={s.label}
+                          delay={i * 0.06}
+                          className="bg-surface border border-border rounded-2xl px-4 py-5 md:p-6 text-center hover:border-primary/40 transition"
+                        >
+                          <p className="font-display text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                            {s.value}
+                          </p>
+                          <p className="mono text-[10px] md:text-xs text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
+                        </Reveal>
+                      ))}
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      {educationList.map((e, i) => (
+                        <Reveal
+                          key={i}
+                          delay={Math.min(i * 0.07, 0.35)}
+                          className="group relative bg-surface border border-border rounded-2xl p-6 md:p-7 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-24px_rgba(0,0,0,0.4)] transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-4">
+                            <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center shrink-0">
+                              <GraduationCap className="w-5 h-5" />
+                            </span>
+                            {e.gpa && (
+                              <span className="mono text-[10px] px-2.5 py-1 rounded-full bg-primary/15 text-primary shrink-0">
+                                GPA {e.gpa}
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-display font-semibold text-base md:text-lg leading-snug mb-1.5">{e.university}</h3>
+                          <p className="text-sm text-primary font-medium mb-3">
+                            {e.degree}
+                            {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
+                          </p>
+
+                          {e.duration && (
+                            <span className="inline-flex items-center gap-1.5 mono text-[11px] text-textMuted bg-surfaceAlt rounded-full px-3 py-1 mb-4">
+                              <Calendar className="w-3 h-3" />
+                              {e.duration}
+                            </span>
+                          )}
+
+                          {e.description && (
+                            <p className="text-textMuted text-sm leading-relaxed pt-4 border-t border-border">{e.description}</p>
+                          )}
+                        </Reveal>
+                      ))}
+                    </div>
+
+                    {/* Closing CTA */}
+                    <Reveal delay={0.1} className="mt-14 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-7 md:p-9 flex flex-col md:flex-row items-center justify-between gap-5">
+                      <div className="text-center md:text-left">
+                        <h3 className="font-display text-lg md:text-xl font-semibold mb-1.5">Curious how this translates into practice?</h3>
+                        <p className="text-textMuted text-sm">
+                          See how this background shows up in the skills I use and the projects I've shipped.
+                        </p>
                       </div>
-                      <p className="text-sm text-primary mb-1">
-                        {e.degree}
-                        {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
-                      </p>
-                      <p className="mono text-xs text-textMuted mb-3">{e.duration}</p>
-                      {e.description && <p className="text-textMuted text-sm leading-relaxed">{e.description}</p>}
+                      <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+                        <button
+                          onClick={() => goToSection("skills")}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                        >
+                          View Skills
+                        </button>
+                        <button
+                          onClick={() => goToSection("experience")}
+                          className="px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
+                        >
+                          View Experience
+                        </button>
+                      </div>
                     </Reveal>
-                  ))}
-                </div>
+                  </>
+                )}
               </section>
             )}
 
             {activeSection === "contact" && (
-              <section className="scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-3xl mx-auto w-full">
-                <Reveal>
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2">Get In Touch</p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-8">Contact</h2>
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    {portfolio.contact.email && (
-                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
-                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Email</p>
-                        <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary hover:underline break-all">
-                          {portfolio.contact.email}
-                        </a>
-                      </div>
-                    )}
-                    {portfolio.contact.phone && (
-                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
-                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Phone</p>
-                        <p className="text-sm text-text">{portfolio.contact.phone}</p>
-                      </div>
-                    )}
-                    {portfolio.contact.location && (
-                      <div className="bg-surface border border-border rounded-xl p-4 hover:border-primary/40 transition">
-                        <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">Location</p>
-                        <p className="text-sm text-text">{portfolio.contact.location}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-4 mt-6">
-                    {Object.entries(portfolio.contact.socialLinks || {}).map(
-                      ([key, val]) =>
-                        val && (
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
+                <AuroraBackground />
+
+                <Reveal className="max-w-2xl">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Get In Touch
+                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Contact</h2>
+                  <p className="text-textMuted text-sm md:text-base">
+                    Have a project in mind, a role to discuss, or just want to say hello? Here's how to reach me.
+                  </p>
+                </Reveal>
+
+                <div className="grid lg:grid-cols-5 gap-6 lg:gap-8 mt-12 items-start">
+                  {/* Left: narrative + primary CTA */}
+                  <div className="lg:col-span-2 space-y-5 lg:sticky lg:top-24">
+                    <Reveal delay={0.05} className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-6 md:p-7">
+                      {typeof portfolio.hero.availableForWork === "boolean" && (
+                        <span className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-xs">
+                          <span className="relative flex h-2 w-2">
+                            {portfolio.hero.availableForWork && (
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            )}
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${portfolio.hero.availableForWork ? "bg-green-500" : "bg-textMuted"}`} />
+                          </span>
+                          {portfolio.hero.availableForWork ? "Available for new work" : "Not currently available"}
+                        </span>
+                      )}
+
+                      <h3 className="font-display text-lg md:text-xl font-semibold mb-2">Let's build something great</h3>
+                      <p className="text-textMuted text-sm leading-relaxed mb-6">
+                        {portfolio.hero.tagline || "Reach out and I'll get back to you as soon as I can."}
+                      </p>
+
+                      <div className="flex flex-wrap gap-3">
+                        {portfolio.contact.email && (
                           <a
-                            key={key}
-                            href={val}
+                            href={`mailto:${portfolio.contact.email}`}
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                          >
+                            <Mail className="w-4 h-4" /> Say Hello
+                          </a>
+                        )}
+                        {portfolio.hero.resumeLink && (
+                          <a
+                            href={portfolio.hero.resumeLink}
                             target="_blank"
                             rel="noreferrer"
-                            className="mono text-sm text-primary hover:underline capitalize"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
                           >
-                            {key}
+                            <Download className="w-4 h-4" /> Resume
                           </a>
-                        )
+                        )}
+                      </div>
+                    </Reveal>
+
+                    {socialEntries.length > 0 && (
+                      <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6">
+                        <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">Elsewhere on the Web</h3>
+                        <div className="space-y-1">
+                          {socialEntries.map(([key, val]) => (
+                            <a
+                              key={key}
+                              href={val}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-surfaceAlt transition"
+                            >
+                              <span className="flex items-center gap-2.5 text-sm text-text capitalize">
+                                <span className="w-8 h-8 flex items-center justify-center rounded-full bg-surfaceAlt border border-border text-textMuted group-hover:text-primary group-hover:border-primary transition">
+                                  {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                                </span>
+                                {key}
+                              </span>
+                              <ArrowUpRight className="w-3.5 h-3.5 text-textMuted group-hover:text-primary transition" />
+                            </a>
+                          ))}
+                        </div>
+                      </Reveal>
                     )}
                   </div>
-                </Reveal>
+
+                  {/* Right: contact detail cards */}
+                  <div className="lg:col-span-3 space-y-5">
+                    {contactCards.length > 0 && (
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {contactCards.map((c, i) => (
+                          <Reveal
+                            key={c.key}
+                            delay={i * 0.06}
+                            className="bg-surface border border-border rounded-2xl p-5 hover:border-primary/40 hover:-translate-y-0.5 transition-all"
+                          >
+                            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center mb-3.5">
+                              {c.icon}
+                            </span>
+                            <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">{c.label}</p>
+                            {c.href ? (
+                              <a href={c.href} className="text-sm text-primary font-medium hover:underline break-all">
+                                {c.value}
+                              </a>
+                            ) : (
+                              <p className="text-sm text-text font-medium break-all">{c.value}</p>
+                            )}
+                          </Reveal>
+                        ))}
+                      </div>
+                    )}
+
+                    <Reveal delay={0.15} className="bg-surface border border-border rounded-2xl p-6 md:p-7">
+                      <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">Why Reach Out</h3>
+                      <ul className="space-y-3">
+                        {[
+                          "New projects and freelance collaborations",
+                          "Full-time or contract opportunities",
+                          "Technical questions about my work",
+                        ].map((item, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-sm text-text">
+                            <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                            <span className="leading-relaxed">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="flex items-center gap-3 mt-6 pt-5 border-t border-border">
+                        <button
+                          onClick={() => goToSection("projects")}
+                          className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1"
+                        >
+                          See my work <ArrowUpRight className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-border">·</span>
+                        <button
+                          onClick={() => goToSection("hero")}
+                          className="text-sm text-textMuted hover:text-primary transition font-medium"
+                        >
+                          Back to home
+                        </button>
+                      </div>
+                    </Reveal>
+                  </div>
+                </div>
               </section>
             )}
 

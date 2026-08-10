@@ -21,6 +21,9 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Download,
+  Check,
+  ChevronDown,
+  Palette,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -404,6 +407,8 @@ const Portfolio = ({ slugProp }) => {
   const [activeSection, setActiveSection] = useState("hero");
   const [scrolled, setScrolled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const themeMenuRef = useRef(null);
 
   const [lightboxProject, setLightboxProject] = useState(null);
   const [lightboxMedia, setLightboxMedia] = useState([]);
@@ -489,6 +494,18 @@ const Portfolio = ({ slugProp }) => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [lightboxProject]);
+
+  // Close the theme dropdown on outside click.
+  useEffect(() => {
+    if (!themeMenuOpen) return;
+    const handleClick = (e) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target)) {
+        setThemeMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [themeMenuOpen]);
 
   // Every time the "page" changes, land at the top of it and close the
   // mobile menu — mirrors a real page navigation instead of a scroll jump.
@@ -577,108 +594,139 @@ const Portfolio = ({ slugProp }) => {
     setLightboxMedia([]);
   };
 
+  const activeThemeMeta = THEMES.find((t) => t.id === theme) || THEMES[0];
+
   return (
     <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
       {/* ===== Premium Navbar ===== */}
       <header
-        className={`sticky top-0 z-30 border-b transition-all duration-300 ${
+        className={`sticky top-0 z-30 transition-all duration-300 ${
           scrolled
-            ? "bg-bg/90 backdrop-blur-xl border-border shadow-[0_8px_30px_-15px_rgba(0,0,0,0.4)]"
-            : "bg-bg/60 backdrop-blur-md border-transparent"
+            ? "bg-bg/90 backdrop-blur-xl shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)]"
+            : "bg-bg/50 backdrop-blur-md"
         }`}
       >
-        <div className="flex items-center justify-between px-6 md:px-10 py-4 gap-4">
-          <button
-            onClick={() => goToSection("hero")}
-            className="group flex items-center gap-2 font-display font-semibold text-lg shrink-0"
-          >
-            <span className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent text-white text-sm shadow-[0_4px_18px_-4px_var(--color-primary)] group-hover:scale-105 transition-transform">
-              {owner.name?.[0]?.toUpperCase() || "•"}
-            </span>
-            <span>
-              {owner.name}
-              <span className="text-primary">.</span>
-            </span>
-          </button>
+        <div className="relative">
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+          <div className="flex items-center justify-between px-6 md:px-10 py-4 gap-4">
+            <button
+              onClick={() => goToSection("hero")}
+              className="group flex items-center gap-2.5 font-display font-semibold text-lg shrink-0"
+            >
+              <span className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent text-white text-sm shadow-[0_4px_18px_-4px_var(--color-primary)] group-hover:rotate-6 group-hover:scale-105 transition-transform">
+                {owner.name?.[0]?.toUpperCase() || "•"}
+              </span>
+              <span>
+                {owner.name}
+                <span className="text-primary">.</span>
+              </span>
+            </button>
 
-          {/* Desktop pill nav - each item is its own "page", switched on click */}
-          <nav className="hidden lg:flex items-center gap-1 bg-surface/70 border border-border rounded-full p-1 shadow-inner">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => goToSection(s.id)}
-                className={`relative px-4 py-1.5 text-sm rounded-full transition-colors ${
-                  activeSection === s.id ? "text-white" : "text-textMuted hover:text-text"
-                }`}
-              >
-                {activeSection === s.id && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_4px_16px_-4px_var(--color-primary)]"
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  />
-                )}
-                {s.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {portfolio.hero.githubLink && (
-              <a
-                href={portfolio.hero.githubLink}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-textMuted hover:text-primary hover:border-primary transition"
-                aria-label="GitHub"
-              >
-                {SOCIAL_ICONS.github}
-              </a>
-            )}
-            {portfolio.hero.resumeLink && (
-              <a
-                href={portfolio.hero.resumeLink}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition mono"
-              >
-                Resume ↗
-              </a>
-            )}
-
-            {/* Premium theme switcher - swatch dots */}
-            <div className="hidden sm:flex items-center gap-1 bg-surface border border-border rounded-full px-1.5 py-1">
-              {THEMES.map((t) => (
+            {/* Desktop nav - underline-indicator style instead of a filled pill */}
+            <nav className="hidden lg:flex items-center gap-1">
+              {SECTIONS.map((s) => (
                 <button
-                  key={t.id}
-                  title={t.label}
-                  onClick={() => setTheme(t.id)}
-                  aria-label={`Switch to ${t.label} theme`}
-                  className={`w-4 h-4 rounded-full border transition ${
-                    theme === t.id ? "border-primary scale-125 ring-2 ring-primary/30" : "border-transparent hover:scale-110"
+                  key={s.id}
+                  onClick={() => goToSection(s.id)}
+                  className={`relative px-3.5 py-2 text-sm font-medium transition-colors ${
+                    activeSection === s.id ? "text-text" : "text-textMuted hover:text-text"
                   }`}
-                  style={{ background: t.swatch || "var(--color-primary)" }}
-                />
+                >
+                  {s.label}
+                  {activeSection === s.id && (
+                    <motion.span
+                      layoutId="nav-underline"
+                      className="absolute left-3.5 right-3.5 -bottom-[1px] h-[2px] rounded-full bg-gradient-to-r from-primary to-accent"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                </button>
               ))}
+            </nav>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              {portfolio.hero.githubLink && (
+                <a
+                  href={portfolio.hero.githubLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-textMuted hover:text-primary hover:border-primary transition"
+                  aria-label="GitHub"
+                >
+                  {SOCIAL_ICONS.github}
+                </a>
+              )}
+              {portfolio.hero.resumeLink && (
+                <a
+                  href={portfolio.hero.resumeLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition mono"
+                >
+                  Resume ↗
+                </a>
+              )}
+
+              {/* Theme switcher — swatch + label trigger that opens a small dropdown */}
+              <div className="relative" ref={themeMenuRef}>
+                <button
+                  onClick={() => setThemeMenuOpen((v) => !v)}
+                  aria-label="Change theme"
+                  aria-expanded={themeMenuOpen}
+                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full bg-surface border border-border hover:border-primary/60 transition"
+                >
+                  <span
+                    className="w-5 h-5 rounded-full border border-white/10 shadow-inner"
+                    style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                  />
+                  <Palette className="hidden sm:block w-3.5 h-3.5 text-textMuted" />
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-textMuted transition-transform ${themeMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {themeMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute right-0 mt-2 w-48 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_20px_40px_-16px_rgba(0,0,0,0.5)] p-1.5 z-40"
+                    >
+                      {THEMES.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setTheme(t.id);
+                            setThemeMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm text-text hover:bg-surfaceAlt transition"
+                        >
+                          <span
+                            className="w-4 h-4 rounded-full border border-white/10 shrink-0"
+                            style={{ background: t.swatch || "var(--color-primary)" }}
+                          />
+                          <span className="flex-1 text-left">{t.label}</span>
+                          {theme === t.id && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Mobile menu toggle */}
+              <button
+                onClick={() => setMobileNavOpen((v) => !v)}
+                className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full border border-border text-text"
+                aria-label="Toggle navigation"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                  {mobileNavOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+                </svg>
+              </button>
             </div>
-
-            <button
-              onClick={() => goToSection("contact")}
-              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_6px_20px_-6px_var(--color-primary)] hover:shadow-[0_8px_24px_-4px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
-            >
-              Hire Me
-            </button>
-
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setMobileNavOpen((v) => !v)}
-              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-full border border-border text-text"
-              aria-label="Toggle navigation"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                {mobileNavOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -1488,34 +1536,6 @@ const Portfolio = ({ slugProp }) => {
                         ))}
                       </div>
                     </div>
-
-                    {/* Closing CTA */}
-                    <Reveal delay={0.1} className="mt-14 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-7 md:p-9 flex flex-col md:flex-row items-center justify-between gap-5">
-                      <div className="text-center md:text-left">
-                        <h3 className="font-display text-lg md:text-xl font-semibold mb-1.5">Want the full picture?</h3>
-                        <p className="text-textMuted text-sm">
-                          Take a look at the projects behind this experience, or grab a copy of my resume.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
-                        <button
-                          onClick={() => goToSection("projects")}
-                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
-                        >
-                          View Projects
-                        </button>
-                        {portfolio.hero.resumeLink && (
-                          <a
-                            href={portfolio.hero.resumeLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
-                          >
-                            <Download className="w-4 h-4" /> Resume
-                          </a>
-                        )}
-                      </div>
-                    </Reveal>
                   </>
                 )}
               </section>
@@ -1524,6 +1544,35 @@ const Portfolio = ({ slugProp }) => {
             {activeSection === "education" && (
               <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
                 <div className="pointer-events-none absolute -top-16 right-0 w-80 h-80 rounded-full bg-accent/10 blur-[110px] -z-10" />
+
+                {/* Floating decorative cap + drifting particles — keeps this page feeling
+                    alive even when there's only a card or two of real content. */}
+                <motion.div
+                  aria-hidden="true"
+                  animate={{ y: [0, -14, 0], rotate: [-6, 6, -6] }}
+                  transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+                  className="pointer-events-none absolute top-10 right-6 md:right-16 text-primary/10 -z-10"
+                >
+                  <GraduationCap className="w-40 h-40 md:w-56 md:h-56" strokeWidth={1} />
+                </motion.div>
+                {[...Array(6)].map((_, i) => (
+                  <motion.span
+                    key={i}
+                    aria-hidden="true"
+                    animate={{
+                      y: [0, -22 - i * 4, 0],
+                      opacity: [0.15, 0.6, 0.15],
+                    }}
+                    transition={{
+                      duration: 5 + i,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.5,
+                    }}
+                    className="pointer-events-none absolute -z-10 w-1.5 h-1.5 rounded-full bg-primary/50"
+                    style={{ top: `${18 + i * 11}%`, left: `${8 + i * 15}%` }}
+                  />
+                ))}
 
                 <Reveal className="max-w-2xl">
                   <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -1539,36 +1588,34 @@ const Portfolio = ({ slugProp }) => {
 
                 {educationList.length > 0 && (
                   <>
-                    {/* Quick stats strip */}
-                    <div className="grid grid-cols-2 gap-3 md:gap-5 mt-10 mb-14 max-w-md">
-                      {[
-                        { label: educationList.length === 1 ? "Degree" : "Degrees", value: educationList.length },
-                        { label: uniqueInstitutions.length === 1 ? "Institution" : "Institutions", value: uniqueInstitutions.length },
-                      ].map((s, i) => (
-                        <Reveal
-                          key={s.label}
-                          delay={i * 0.06}
-                          className="bg-surface border border-border rounded-2xl px-4 py-5 md:p-6 text-center hover:border-primary/40 transition"
-                        >
-                          <p className="font-display text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
-                            {s.value}
-                          </p>
-                          <p className="mono text-[10px] md:text-xs text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
-                        </Reveal>
-                      ))}
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-5">
+                    <div
+                      className={`grid gap-5 mt-14 ${
+                        educationList.length === 1 ? "max-w-xl mx-auto" : "sm:grid-cols-2"
+                      }`}
+                    >
                       {educationList.map((e, i) => (
-                        <Reveal
+                        <TiltCard
                           key={i}
-                          delay={Math.min(i * 0.07, 0.35)}
-                          className="group relative bg-surface border border-border rounded-2xl p-6 md:p-7 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-24px_rgba(0,0,0,0.4)] transition-all"
+                          delay={Math.min(i * 0.08, 0.35)}
+                          className="group relative bg-surface border border-border rounded-2xl p-7 md:p-8 overflow-hidden hover:border-primary/50 hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.45)] transition-[border-color,box-shadow]"
                         >
-                          <div className="flex items-start justify-between gap-3 mb-4">
-                            <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center shrink-0">
-                              <GraduationCap className="w-5 h-5" />
-                            </span>
+                          <motion.div
+                            aria-hidden="true"
+                            animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            className="pointer-events-none absolute -right-10 -top-10 w-40 h-40 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-2xl"
+                          />
+
+                          <div className="relative flex items-start justify-between gap-3 mb-4">
+                            <motion.span
+                              initial={{ scale: 0, rotate: -25 }}
+                              whileInView={{ scale: 1, rotate: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ type: "spring", stiffness: 260, damping: 16, delay: Math.min(i * 0.08, 0.35) + 0.1 }}
+                              className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 text-primary flex items-center justify-center shrink-0 group-hover:rotate-6 transition-transform"
+                            >
+                              <GraduationCap className="w-6 h-6" />
+                            </motion.span>
                             {e.gpa && (
                               <span className="mono text-[10px] px-2.5 py-1 rounded-full bg-primary/15 text-primary shrink-0">
                                 GPA {e.gpa}
@@ -1576,23 +1623,33 @@ const Portfolio = ({ slugProp }) => {
                             )}
                           </div>
 
-                          <h3 className="font-display font-semibold text-base md:text-lg leading-snug mb-1.5">{e.university}</h3>
-                          <p className="text-sm text-primary font-medium mb-3">
+                          <h3 className="relative font-display font-semibold text-lg md:text-xl leading-snug mb-1.5">{e.university}</h3>
+                          <p className="relative text-sm text-primary font-medium mb-3">
                             {e.degree}
                             {e.fieldOfStudy && ` in ${e.fieldOfStudy}`}
                           </p>
 
                           {e.duration && (
-                            <span className="inline-flex items-center gap-1.5 mono text-[11px] text-textMuted bg-surfaceAlt rounded-full px-3 py-1 mb-4">
+                            <span className="relative inline-flex items-center gap-1.5 mono text-[11px] text-textMuted bg-surfaceAlt rounded-full px-3 py-1 mb-4">
                               <Calendar className="w-3 h-3" />
                               {e.duration}
                             </span>
                           )}
 
                           {e.description && (
-                            <p className="text-textMuted text-sm leading-relaxed pt-4 border-t border-border">{e.description}</p>
+                            <p className="relative text-textMuted text-sm leading-relaxed pt-4 border-t border-border">{e.description}</p>
                           )}
-                        </Reveal>
+
+                          <div className="relative h-1 rounded-full bg-surfaceAlt overflow-hidden mt-5">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              whileInView={{ width: "100%" }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1.1, delay: Math.min(i * 0.08, 0.35) + 0.2, ease: "easeOut" }}
+                              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                            />
+                          </div>
+                        </TiltCard>
                       ))}
                     </div>
 

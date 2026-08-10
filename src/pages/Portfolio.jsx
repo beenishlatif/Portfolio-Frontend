@@ -22,8 +22,6 @@ import {
   CheckCircle2,
   Download,
   Check,
-  ChevronDown,
-  Palette,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -93,6 +91,38 @@ const TechMarquee = ({ items }) => {
       `}</style>
     </div>
   );
+};
+
+// Counts up to a target number once it scrolls into view — used for the
+// small stat cards so numbers feel earned rather than static.
+const CountUp = ({ value, duration = 1.1 }) => {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started.current) {
+          started.current = true;
+          const start = performance.now();
+          const step = (now) => {
+            const progress = Math.min((now - start) / (duration * 1000), 1);
+            setDisplay(Math.round(progress * value));
+            if (progress < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [value, duration]);
+
+  return <span ref={ref}>{display}</span>;
 };
 
 const Reveal = ({ children, className, delay = 0 }) => (
@@ -226,6 +256,51 @@ const TIER_SPAN = {
   compact: "",
 };
 
+// Tracks pointer position on a card and exposes it as CSS vars, driving a
+// radial-gradient glow that follows the cursor — cheap, no re-renders.
+const handleCardSpotlight = (e) => {
+  const el = e.currentTarget;
+  const rect = el.getBoundingClientRect();
+  el.style.setProperty("--spot-x", `${e.clientX - rect.left}px`);
+  el.style.setProperty("--spot-y", `${e.clientY - rect.top}px`);
+};
+
+const Spotlight = ({ size = 200, opacity = 0.09 }) => (
+  <div
+    aria-hidden="true"
+    className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+    style={{
+      background: `radial-gradient(${size}px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255,255,255,${opacity}), transparent 70%)`,
+    }}
+  />
+);
+
+// Radial ring instead of a linear bar — reads as a dial/gauge, doubles as
+// the card's focal graphic rather than a decoration bolted on the side.
+const CircularProgress = ({ level, size = 72, stroke = 6, delay = 0 }) => {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={radius} className="text-surfaceAlt" stroke="currentColor" strokeWidth={stroke} fill="none" />
+      <motion.circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="url(#skillRingGradient)"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        fill="none"
+        strokeDasharray={circumference}
+        initial={{ strokeDashoffset: circumference }}
+        whileInView={{ strokeDashoffset: circumference - (level / 100) * circumference }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.1, delay, ease: "easeOut" }}
+      />
+    </svg>
+  );
+};
+
 const BentoSkillTile = ({ skill, delay = 0 }) => {
   const level = skill.level ?? 0;
   const tier = skillTier(level);
@@ -239,24 +314,19 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-6 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/15 to-accent/15 border border-primary/30 hover:border-primary/60 hover:-translate-y-1 transition-all`}
+        onMouseMove={handleCardSpotlight}
+        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-6 flex items-center gap-5 overflow-hidden bg-gradient-to-br from-primary/15 via-surface to-accent/10 border border-primary/30 hover:border-primary/60 hover:-translate-y-1 transition-all`}
       >
+        <Spotlight size={260} opacity={0.1} />
         <div className="pointer-events-none absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-primary/25 blur-[70px] group-hover:bg-primary/35 transition-colors duration-300" />
-        <div className="relative flex items-center justify-between">
-          <span className="mono text-[10px] uppercase tracking-widest text-primary">{category}</span>
-          <span className={`mono text-[10px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
+        <div className="relative shrink-0 flex items-center justify-center">
+          <CircularProgress level={level} size={88} stroke={7} delay={delay} />
+          <span className="absolute font-display text-sm font-bold text-text">{level}%</span>
         </div>
-        <div className="relative">
-          <h4 className="font-display text-2xl md:text-3xl font-bold mb-3">{skill.name}</h4>
-          <div className="h-1.5 rounded-full bg-surfaceAlt/70 overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              whileInView={{ width: `${level}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 1, delay, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-            />
-          </div>
+        <div className="relative min-w-0">
+          <span className="mono text-[10px] uppercase tracking-widest text-primary">{category}</span>
+          <h4 className="font-display text-xl md:text-2xl font-bold mt-1 mb-2 truncate">{skill.name}</h4>
+          <span className={`mono text-[10px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
         </div>
       </motion.div>
     );
@@ -269,21 +339,18 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-5 flex flex-col justify-between bg-surface border border-border hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all`}
+        onMouseMove={handleCardSpotlight}
+        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-5 flex flex-col items-center justify-center text-center gap-3 overflow-hidden bg-surface border border-border hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all`}
       >
-        <span className="mono text-[10px] uppercase tracking-widest text-textMuted">{category}</span>
-        <div>
-          <h4 className="font-semibold text-sm mb-2 truncate">{skill.name}</h4>
-          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              whileInView={{ width: `${level}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.9, delay, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-            />
-          </div>
-          <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block mt-2.5 ${meta.className}`}>{meta.label}</span>
+        <Spotlight size={180} />
+        <span className="relative mono text-[10px] uppercase tracking-widest text-textMuted">{category}</span>
+        <div className="relative flex items-center justify-center">
+          <CircularProgress level={level} size={58} stroke={5} delay={delay} />
+          <span className="absolute mono text-[10px] font-semibold text-text">{level}%</span>
+        </div>
+        <div className="relative">
+          <h4 className="font-semibold text-sm mb-1.5 truncate max-w-[9rem]">{skill.name}</h4>
+          <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block ${meta.className}`}>{meta.label}</span>
         </div>
       </motion.div>
     );
@@ -295,20 +362,16 @@ const BentoSkillTile = ({ skill, delay = 0 }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative rounded-2xl p-4 flex flex-col justify-center bg-surface border border-border hover:border-primary/50 hover:-translate-y-0.5 transition-all"
+      onMouseMove={handleCardSpotlight}
+      className="group relative rounded-2xl p-4 flex items-center gap-3 overflow-hidden bg-surface border border-border hover:border-primary/50 hover:-translate-y-0.5 transition-all"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="font-semibold text-xs truncate">{skill.name}</h4>
-        <span className={`mono text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${meta.className}`}>{meta.label}</span>
+      <Spotlight size={140} />
+      <div className="relative shrink-0 flex items-center justify-center">
+        <CircularProgress level={level} size={38} stroke={4} delay={delay} />
       </div>
-      <div className="h-1 rounded-full bg-surfaceAlt overflow-hidden mt-2">
-        <motion.div
-          initial={{ width: 0 }}
-          whileInView={{ width: `${level}%` }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay, ease: "easeOut" }}
-          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-        />
+      <div className="relative min-w-0 flex-1">
+        <h4 className="font-semibold text-xs truncate">{skill.name}</h4>
+        <span className={`mono text-[9px] px-1.5 py-0.5 rounded-full inline-block mt-1 ${meta.className}`}>{meta.label}</span>
       </div>
     </motion.div>
   );
@@ -667,23 +730,31 @@ const Portfolio = ({ slugProp }) => {
                 </a>
               )}
 
-              {/* Theme switcher — swatch + label trigger that opens a small dropdown */}
+              {/* Theme switcher — a quiet rotating-ring dial that opens into a
+                  proper colour picker, instead of a busy icon+label pill. */}
               <div className="relative" ref={themeMenuRef}>
-                <button
-                  onClick={() => setThemeMenuOpen((v) => !v)}
-                  aria-label="Change theme"
-                  aria-expanded={themeMenuOpen}
-                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full bg-surface border border-border hover:border-primary/60 transition"
-                >
-                  <span
-                    className="w-5 h-5 rounded-full border border-white/10 shadow-inner"
-                    style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                <div className="relative w-9 h-9">
+                  <motion.span
+                    aria-hidden="true"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: "conic-gradient(from 0deg, var(--color-primary), var(--color-accent), var(--color-primary))",
+                    }}
                   />
-                  <Palette className="hidden sm:block w-3.5 h-3.5 text-textMuted" />
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-textMuted transition-transform ${themeMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
+                  <button
+                    onClick={() => setThemeMenuOpen((v) => !v)}
+                    aria-label="Change theme"
+                    aria-expanded={themeMenuOpen}
+                    className="absolute inset-[2px] rounded-full bg-bg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                  >
+                    <span
+                      className="w-4 h-4 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+                      style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                    />
+                  </button>
+                </div>
 
                 <AnimatePresence>
                   {themeMenuOpen && (
@@ -692,25 +763,36 @@ const Portfolio = ({ slugProp }) => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.96 }}
                       transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute right-0 mt-2 w-48 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_20px_40px_-16px_rgba(0,0,0,0.5)] p-1.5 z-40"
+                      className="absolute right-0 mt-3 w-56 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55)] p-4 z-40"
                     >
-                      {THEMES.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            setTheme(t.id);
-                            setThemeMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm text-text hover:bg-surfaceAlt transition"
-                        >
-                          <span
-                            className="w-4 h-4 rounded-full border border-white/10 shrink-0"
-                            style={{ background: t.swatch || "var(--color-primary)" }}
-                          />
-                          <span className="flex-1 text-left">{t.label}</span>
-                          {theme === t.id && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                        </button>
-                      ))}
+                      <p className="mono text-[10px] text-textMuted uppercase tracking-widest mb-3 px-0.5">Appearance</p>
+                      <div className="grid grid-cols-4 gap-3">
+                        {THEMES.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => {
+                              setTheme(t.id);
+                              setThemeMenuOpen(false);
+                            }}
+                            title={t.label}
+                            className="group flex flex-col items-center gap-1.5"
+                          >
+                            <span
+                              className={`relative w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all ${
+                                theme === t.id
+                                  ? "border-primary scale-110 shadow-[0_0_0_3px_rgba(99,102,241,0.2)]"
+                                  : "border-transparent group-hover:scale-105 group-hover:border-border"
+                              }`}
+                              style={{ background: t.swatch || "var(--color-primary)" }}
+                            >
+                              {theme === t.id && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
+                            </span>
+                            <span className="text-[9px] text-textMuted group-hover:text-text transition truncate max-w-[3.25rem] text-center">
+                              {t.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1149,6 +1231,16 @@ const Portfolio = ({ slugProp }) => {
 
                 {portfolio.skills.length > 0 && (
                   <>
+                    {/* Shared gradient used by every circular progress ring below */}
+                    <svg width="0" height="0" className="absolute">
+                      <defs>
+                        <linearGradient id="skillRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="var(--color-primary)" />
+                          <stop offset="100%" stopColor="var(--color-accent)" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+
                     {/* Bento wall — tile size is driven by each skill's own level, so
                         the strongest skills are literally the biggest things on screen */}
                     <AnimatePresence mode="wait">
@@ -1465,6 +1557,42 @@ const Portfolio = ({ slugProp }) => {
 
                 {experienceList.length > 0 && (
                   <>
+                    {/* Quick stats strip — gives the page some weight before the
+                        timeline, and surfaces numbers the timeline itself can't. */}
+                    <div className="grid grid-cols-3 gap-3 md:gap-5 mt-10 mb-2 max-w-xl">
+                      {[
+                        {
+                          label: experienceList.length === 1 ? "Role" : "Roles",
+                          value: experienceList.length,
+                          icon: <Briefcase className="w-4 h-4" />,
+                        },
+                        {
+                          label: uniqueCompanies.length === 1 ? "Company" : "Companies",
+                          value: uniqueCompanies.length,
+                          icon: <Building2 className="w-4 h-4" />,
+                        },
+                        {
+                          label: totalAchievements === 1 ? "Highlight" : "Highlights",
+                          value: totalAchievements,
+                          icon: <CheckCircle2 className="w-4 h-4" />,
+                        },
+                      ].map((s, i) => (
+                        <Reveal
+                          key={s.label}
+                          delay={i * 0.06}
+                          className="bg-surface border border-border rounded-2xl p-4 md:p-5 text-center hover:border-primary/40 hover:-translate-y-0.5 transition-all"
+                        >
+                          <span className="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center mb-2">
+                            {s.icon}
+                          </span>
+                          <p className="font-display text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                            <CountUp value={s.value} />
+                          </p>
+                          <p className="mono text-[9px] md:text-[10px] text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
+                        </Reveal>
+                      ))}
+                    </div>
+
                     <div className="relative pl-9 md:pl-10 mt-12">
                       <div className="absolute left-[9px] md:left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
                       <div className="space-y-8">

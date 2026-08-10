@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Download,
   Check,
+  Palette,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -730,31 +731,37 @@ const Portfolio = ({ slugProp }) => {
                 </a>
               )}
 
-              {/* Theme switcher — a quiet rotating-ring dial that opens into a
-                  proper colour picker, instead of a busy icon+label pill. */}
+              {/* Theme switcher — premium pill button: soft glass surface, a
+                  live gradient swatch, and a small palette glyph, opening
+                  into a proper colour picker. Replaces the old spinning ring. */}
               <div className="relative" ref={themeMenuRef}>
-                <div className="relative w-9 h-9">
-                  <motion.span
-                    aria-hidden="true"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background: "conic-gradient(from 0deg, var(--color-primary), var(--color-accent), var(--color-primary))",
-                    }}
-                  />
-                  <button
-                    onClick={() => setThemeMenuOpen((v) => !v)}
-                    aria-label="Change theme"
-                    aria-expanded={themeMenuOpen}
-                    className="absolute inset-[2px] rounded-full bg-bg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-                  >
+                <button
+                  onClick={() => setThemeMenuOpen((v) => !v)}
+                  aria-label="Change theme"
+                  aria-expanded={themeMenuOpen}
+                  className={`group relative flex items-center gap-2 pl-2 pr-3 h-9 rounded-full border transition-all ${
+                    themeMenuOpen
+                      ? "border-primary/60 bg-surface shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
+                      : "border-border bg-surface/70 backdrop-blur hover:border-primary/40 hover:bg-surface"
+                  }`}
+                >
+                  <span className="relative w-5 h-5 rounded-full overflow-hidden shrink-0 ring-1 ring-white/15 shadow-inner">
                     <span
-                      className="w-4 h-4 rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-                      style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                      className="absolute inset-0"
+                      style={{
+                        background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
+                      }}
                     />
-                  </button>
-                </div>
+                  </span>
+                  <Palette className="w-3.5 h-3.5 text-textMuted group-hover:text-primary transition-colors" />
+                  <span
+                    className={`w-3.5 h-3.5 transition-transform duration-200 text-textMuted ${themeMenuOpen ? "rotate-180" : ""}`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </button>
 
                 <AnimatePresence>
                   {themeMenuOpen && (
@@ -763,10 +770,17 @@ const Portfolio = ({ slugProp }) => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.96 }}
                       transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute right-0 mt-3 w-56 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55)] p-4 z-40"
+                      className="absolute right-0 mt-3 w-60 rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_24px_48px_-16px_rgba(0,0,0,0.55)] p-4 z-40 overflow-hidden"
                     >
-                      <p className="mono text-[10px] text-textMuted uppercase tracking-widest mb-3 px-0.5">Appearance</p>
-                      <div className="grid grid-cols-4 gap-3">
+                      <div
+                        className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[50px] opacity-40"
+                        style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
+                      />
+                      <div className="relative flex items-center justify-between mb-3 px-0.5">
+                        <p className="mono text-[10px] text-primary uppercase tracking-widest">Appearance</p>
+                        <span className="mono text-[10px] text-textMuted">{activeThemeMeta?.label}</span>
+                      </div>
+                      <div className="relative grid grid-cols-4 gap-3">
                         {THEMES.map((t) => (
                           <button
                             key={t.id}
@@ -1637,13 +1651,19 @@ const Portfolio = ({ slugProp }) => {
               <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
                 <div className="pointer-events-none absolute -top-16 right-0 w-80 h-80 rounded-full bg-accent/10 blur-[110px] -z-10" />
 
-                {/* Floating decorative cap + drifting particles — keeps this page feeling
-                    alive even when there's only a card or two of real content. */}
+                {/* Floating decorative cap + drifting particles — kept clearly visible
+                    (not just a faint flash on load) so it reads as a persistent motif
+                    throughout the page, not a one-off entrance effect. */}
                 <motion.div
                   aria-hidden="true"
-                  animate={{ y: [0, -14, 0], rotate: [-6, 6, -6] }}
-                  transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-                  className="pointer-events-none absolute top-10 right-6 md:right-16 text-primary/10 -z-10"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, y: [0, -14, 0], rotate: [-6, 6, -6] }}
+                  transition={{
+                    opacity: { duration: 0.6 },
+                    y: { duration: 9, repeat: Infinity, ease: "easeInOut" },
+                    rotate: { duration: 9, repeat: Infinity, ease: "easeInOut" },
+                  }}
+                  className="pointer-events-none absolute top-10 right-6 md:right-16 text-primary/25 -z-10"
                 >
                   <GraduationCap className="w-40 h-40 md:w-56 md:h-56" strokeWidth={1} />
                 </motion.div>
@@ -1653,7 +1673,7 @@ const Portfolio = ({ slugProp }) => {
                     aria-hidden="true"
                     animate={{
                       y: [0, -22 - i * 4, 0],
-                      opacity: [0.15, 0.6, 0.15],
+                      opacity: [0.3, 0.75, 0.3],
                     }}
                     transition={{
                       duration: 5 + i,
@@ -1661,7 +1681,7 @@ const Portfolio = ({ slugProp }) => {
                       ease: "easeInOut",
                       delay: i * 0.5,
                     }}
-                    className="pointer-events-none absolute -z-10 w-1.5 h-1.5 rounded-full bg-primary/50"
+                    className="pointer-events-none absolute -z-10 w-1.5 h-1.5 rounded-full bg-primary/60"
                     style={{ top: `${18 + i * 11}%`, left: `${8 + i * 15}%` }}
                   />
                 ))}
@@ -1777,143 +1797,138 @@ const Portfolio = ({ slugProp }) => {
               <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
                 <AuroraBackground />
 
-                <Reveal className="max-w-2xl">
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <span className="w-6 h-px bg-primary" /> Get In Touch
+                <Reveal className="max-w-2xl mx-auto text-center">
+                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
+                    <span className="w-6 h-px bg-primary" /> Get In Touch <span className="w-6 h-px bg-primary" />
                   </p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Contact</h2>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Let's Talk</h2>
                   <p className="text-textMuted text-sm md:text-base">
                     Have a project in mind, a role to discuss, or just want to say hello? Here's how to reach me.
                   </p>
+
+                  {typeof portfolio.hero.availableForWork === "boolean" && (
+                    <span className="inline-flex items-center gap-2 mt-5 px-3.5 py-1.5 rounded-full bg-surface border border-border text-xs">
+                      <span className="relative flex h-2 w-2">
+                        {portfolio.hero.availableForWork && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        )}
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${portfolio.hero.availableForWork ? "bg-green-500" : "bg-textMuted"}`} />
+                      </span>
+                      {portfolio.hero.availableForWork ? "Available for new work" : "Not currently available"}
+                    </span>
+                  )}
                 </Reveal>
 
-                <div className="grid lg:grid-cols-5 gap-6 lg:gap-8 mt-12 items-start">
-                  {/* Left: narrative + primary CTA */}
-                  <div className="lg:col-span-2 space-y-5 lg:sticky lg:top-24">
-                    <Reveal delay={0.05} className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-2xl p-6 md:p-7">
-                      {typeof portfolio.hero.availableForWork === "boolean" && (
-                        <span className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-xs">
-                          <span className="relative flex h-2 w-2">
-                            {portfolio.hero.availableForWork && (
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                            )}
-                            <span className={`relative inline-flex rounded-full h-2 w-2 ${portfolio.hero.availableForWork ? "bg-green-500" : "bg-textMuted"}`} />
-                          </span>
-                          {portfolio.hero.availableForWork ? "Available for new work" : "Not currently available"}
+                {/* Primary contact detail cards — one clean row, icon + label + value,
+                    consistent with the Email/Phone/Location cards elsewhere in the app. */}
+                {contactCards.length > 0 && (
+                  <div className={`grid gap-4 mt-12 max-w-4xl mx-auto ${
+                    contactCards.length === 1 ? "max-w-sm" : contactCards.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
+                  }`}>
+                    {contactCards.map((c, i) => (
+                      <Reveal
+                        key={c.key}
+                        delay={i * 0.06}
+                        className="group relative bg-surface border border-border rounded-2xl p-6 text-center hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_20px_40px_-24px_rgba(0,0,0,0.4)] transition-all overflow-hidden"
+                      >
+                        <div className="pointer-events-none absolute -right-8 -top-8 w-24 h-24 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="relative inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary items-center justify-center mb-4">
+                          {c.icon}
                         </span>
-                      )}
-
-                      <h3 className="font-display text-lg md:text-xl font-semibold mb-2">Let's build something great</h3>
-                      <p className="text-textMuted text-sm leading-relaxed mb-6">
-                        {portfolio.hero.tagline || "Reach out and I'll get back to you as soon as I can."}
-                      </p>
-
-                      <div className="flex flex-wrap gap-3">
-                        {portfolio.contact.email && (
-                          <a
-                            href={`mailto:${portfolio.contact.email}`}
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_8px_20px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
-                          >
-                            <Mail className="w-4 h-4" /> Say Hello
+                        <p className="relative text-[10px] mono text-textMuted uppercase tracking-widest mb-1.5">{c.label}</p>
+                        {c.href ? (
+                          <a href={c.href} className="relative block text-sm text-primary font-medium hover:underline break-all">
+                            {c.value}
                           </a>
+                        ) : (
+                          <p className="relative text-sm text-text font-medium break-all">{c.value}</p>
                         )}
-                        {portfolio.hero.resumeLink && (
-                          <a
-                            href={portfolio.hero.resumeLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
-                          >
-                            <Download className="w-4 h-4" /> Resume
-                          </a>
-                        )}
-                      </div>
-                    </Reveal>
-
-                    {socialEntries.length > 0 && (
-                      <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6">
-                        <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">Elsewhere on the Web</h3>
-                        <div className="space-y-1">
-                          {socialEntries.map(([key, val]) => (
-                            <a
-                              key={key}
-                              href={val}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-surfaceAlt transition"
-                            >
-                              <span className="flex items-center gap-2.5 text-sm text-text capitalize">
-                                <span className="w-8 h-8 flex items-center justify-center rounded-full bg-surfaceAlt border border-border text-textMuted group-hover:text-primary group-hover:border-primary transition">
-                                  {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                                </span>
-                                {key}
-                              </span>
-                              <ArrowUpRight className="w-3.5 h-3.5 text-textMuted group-hover:text-primary transition" />
-                            </a>
-                          ))}
-                        </div>
                       </Reveal>
+                    ))}
+                  </div>
+                )}
+
+                {/* Main CTA band + social row, centered as the page's focal point
+                    instead of splitting the page into two competing side columns. */}
+                <Reveal delay={0.1} className="relative max-w-3xl mx-auto mt-8 bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-3xl p-8 md:p-12 text-center overflow-hidden">
+                  <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{
+                    backgroundImage: "radial-gradient(circle, var(--color-text) 1px, transparent 1px)",
+                    backgroundSize: "18px 18px",
+                  }} />
+
+                  <h3 className="relative font-display text-xl md:text-2xl font-semibold mb-2.5">Let's build something great</h3>
+                  <p className="relative text-textMuted text-sm md:text-base leading-relaxed max-w-lg mx-auto mb-7">
+                    {portfolio.hero.tagline || "Reach out and I'll get back to you as soon as I can."}
+                  </p>
+
+                  <div className="relative flex flex-wrap items-center justify-center gap-3">
+                    {portfolio.contact.email && (
+                      <a
+                        href={`mailto:${portfolio.contact.email}`}
+                        className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                      >
+                        <Mail className="w-4 h-4" /> Say Hello
+                      </a>
+                    )}
+                    {portfolio.hero.resumeLink && (
+                      <a
+                        href={portfolio.hero.resumeLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl border border-border bg-surface/60 backdrop-blur text-text hover:border-primary hover:text-primary transition text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" /> Resume
+                      </a>
                     )}
                   </div>
 
-                  {/* Right: contact detail cards */}
-                  <div className="lg:col-span-3 space-y-5">
-                    {contactCards.length > 0 && (
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        {contactCards.map((c, i) => (
-                          <Reveal
-                            key={c.key}
-                            delay={i * 0.06}
-                            className="bg-surface border border-border rounded-2xl p-5 hover:border-primary/40 hover:-translate-y-0.5 transition-all"
-                          >
-                            <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center mb-3.5">
-                              {c.icon}
-                            </span>
-                            <p className="text-[10px] mono text-textMuted uppercase tracking-widest mb-1">{c.label}</p>
-                            {c.href ? (
-                              <a href={c.href} className="text-sm text-primary font-medium hover:underline break-all">
-                                {c.value}
-                              </a>
-                            ) : (
-                              <p className="text-sm text-text font-medium break-all">{c.value}</p>
-                            )}
-                          </Reveal>
-                        ))}
-                      </div>
-                    )}
-
-                    <Reveal delay={0.15} className="bg-surface border border-border rounded-2xl p-6 md:p-7">
-                      <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">Why Reach Out</h3>
-                      <ul className="space-y-3">
-                        {[
-                          "New projects and freelance collaborations",
-                          "Full-time or contract opportunities",
-                          "Technical questions about my work",
-                        ].map((item, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-sm text-text">
-                            <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                            <span className="leading-relaxed">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className="flex items-center gap-3 mt-6 pt-5 border-t border-border">
-                        <button
-                          onClick={() => goToSection("projects")}
-                          className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1"
+                  {socialEntries.length > 0 && (
+                    <div className="relative flex items-center justify-center gap-3 mt-8 pt-7 border-t border-border/60">
+                      {socialEntries.map(([key, val]) => (
+                        <a
+                          key={key}
+                          href={val}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                          aria-label={key}
                         >
-                          See my work <ArrowUpRight className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-border">·</span>
-                        <button
-                          onClick={() => goToSection("hero")}
-                          className="text-sm text-textMuted hover:text-primary transition font-medium"
-                        >
-                          Back to home
-                        </button>
-                      </div>
+                          {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </Reveal>
+
+                {/* Why reach out — three quiet reasons instead of a boxed list,
+                    closing the page on next-step actions. */}
+                <div className="max-w-3xl mx-auto mt-10 grid sm:grid-cols-3 gap-4">
+                  {[
+                    "New projects and freelance collaborations",
+                    "Full-time or contract opportunities",
+                    "Technical questions about my work",
+                  ].map((item, i) => (
+                    <Reveal key={i} delay={i * 0.06} className="flex items-start gap-2.5 text-sm text-text bg-surface border border-border rounded-xl p-4">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                      <span className="leading-relaxed">{item}</span>
                     </Reveal>
-                  </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-center gap-3 mt-8">
+                  <button
+                    onClick={() => goToSection("projects")}
+                    className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1"
+                  >
+                    See my work <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-border">·</span>
+                  <button
+                    onClick={() => goToSection("hero")}
+                    className="text-sm text-textMuted hover:text-primary transition font-medium"
+                  >
+                    Back to home
+                  </button>
                 </div>
               </section>
             )}

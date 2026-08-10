@@ -1557,42 +1557,6 @@ const Portfolio = ({ slugProp }) => {
 
                 {experienceList.length > 0 && (
                   <>
-                    {/* Quick stats strip — gives the page some weight before the
-                        timeline, and surfaces numbers the timeline itself can't. */}
-                    <div className="grid grid-cols-3 gap-3 md:gap-5 mt-10 mb-2 max-w-xl">
-                      {[
-                        {
-                          label: experienceList.length === 1 ? "Role" : "Roles",
-                          value: experienceList.length,
-                          icon: <Briefcase className="w-4 h-4" />,
-                        },
-                        {
-                          label: uniqueCompanies.length === 1 ? "Company" : "Companies",
-                          value: uniqueCompanies.length,
-                          icon: <Building2 className="w-4 h-4" />,
-                        },
-                        {
-                          label: totalAchievements === 1 ? "Highlight" : "Highlights",
-                          value: totalAchievements,
-                          icon: <CheckCircle2 className="w-4 h-4" />,
-                        },
-                      ].map((s, i) => (
-                        <Reveal
-                          key={s.label}
-                          delay={i * 0.06}
-                          className="bg-surface border border-border rounded-2xl p-4 md:p-5 text-center hover:border-primary/40 hover:-translate-y-0.5 transition-all"
-                        >
-                          <span className="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-primary/15 to-accent/15 text-primary flex items-center justify-center mb-2">
-                            {s.icon}
-                          </span>
-                          <p className="font-display text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
-                            <CountUp value={s.value} />
-                          </p>
-                          <p className="mono text-[9px] md:text-[10px] text-textMuted uppercase tracking-widest mt-1">{s.label}</p>
-                        </Reveal>
-                      ))}
-                    </div>
-
                     <div className="relative pl-9 md:pl-10 mt-12">
                       <div className="absolute left-[9px] md:left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-border to-transparent" />
                       <div className="space-y-8">

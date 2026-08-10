@@ -11,8 +11,6 @@ import {
   PlayCircle,
   Image as ImageIcon,
   X,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -399,7 +397,6 @@ const Portfolio = ({ slugProp }) => {
 
   const [lightboxProject, setLightboxProject] = useState(null);
   const [lightboxMedia, setLightboxMedia] = useState([]);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [skillFilter, setSkillFilter] = useState("All");
   const [projectFilter, setProjectFilter] = useState("All");
 
@@ -469,23 +466,19 @@ const Portfolio = ({ slugProp }) => {
     return () => el.removeEventListener("scroll", onScroll);
   }, [activeSection]);
 
-  // Keyboard navigation for the project lightbox (Esc to close, arrows to
-  // move between images/video within the currently open project).
+  // Keyboard: Esc closes the gallery modal. Since every screenshot is shown
+  // at once (no more one-by-one carousel), left/right navigation isn't needed.
   useEffect(() => {
     if (!lightboxProject) return;
     const handleKey = (e) => {
       if (e.key === "Escape") {
         setLightboxProject(null);
         setLightboxMedia([]);
-      } else if (e.key === "ArrowRight") {
-        setLightboxIndex((i) => (lightboxMedia.length ? (i + 1) % lightboxMedia.length : 0));
-      } else if (e.key === "ArrowLeft") {
-        setLightboxIndex((i) => (i - 1 + (lightboxMedia.length || 1)) % (lightboxMedia.length || 1));
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [lightboxProject, lightboxMedia]);
+  }, [lightboxProject]);
 
   // Every time the "page" changes, land at the top of it and close the
   // mobile menu — mirrors a real page navigation instead of a scroll jump.
@@ -533,20 +526,16 @@ const Portfolio = ({ slugProp }) => {
       ? portfolio.projects || []
       : (portfolio.projects || []).filter((p) => p.techStack?.includes(projectFilter));
 
-  const openLightbox = (project, startIndex = 0) => {
+  const openLightbox = (project) => {
     const media = getProjectMedia(project);
     setLightboxProject(project);
     setLightboxMedia(media);
-    setLightboxIndex(Math.max(0, Math.min(startIndex, media.length - 1)));
   };
 
   const closeLightbox = () => {
     setLightboxProject(null);
     setLightboxMedia([]);
   };
-
-  const nextMedia = () => setLightboxIndex((i) => (i + 1) % (lightboxMedia.length || 1));
-  const prevMedia = () => setLightboxIndex((i) => (i - 1 + (lightboxMedia.length || 1)) % (lightboxMedia.length || 1));
 
   return (
     <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
@@ -1176,7 +1165,7 @@ const Portfolio = ({ slugProp }) => {
                             </div>
 
                             <button
-                              onClick={() => (media.length > 0 ? openLightbox(p, 0) : null)}
+                              onClick={() => (media.length > 0 ? openLightbox(p) : null)}
                               disabled={media.length === 0}
                               className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
                             >
@@ -1278,8 +1267,10 @@ const Portfolio = ({ slugProp }) => {
                   </motion.div>
                 )}
 
-                {/* Lightbox: shows every screenshot that was added + the demo video,
-                    each with its own caption/description. */}
+                {/* Gallery modal: every screenshot the admin added is shown at once in
+                    a grid, each with its own caption/description underneath — no more
+                    clicking through images one at a time. Demo video (if any) sits on
+                    top, full width. */}
                 <AnimatePresence>
                   {lightboxProject && (
                     <motion.div
@@ -1287,102 +1278,81 @@ const Portfolio = ({ slugProp }) => {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 md:p-6"
+                      className="fixed inset-0 z-50 bg-black/85 flex items-start md:items-center justify-center p-4 md:p-6 overflow-y-auto"
                       onClick={closeLightbox}
                     >
-                      <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h3 className="font-display text-white font-semibold">{lightboxProject.title}</h3>
-                            {lightboxMedia.length > 0 && (
-                              <p className="mono text-[11px] text-white/50 mt-0.5">
-                                {lightboxIndex + 1} / {lightboxMedia.length}
-                              </p>
-                            )}
+                      <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                        className="max-w-5xl w-full my-auto bg-bg border border-border rounded-2xl overflow-hidden shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between gap-4 px-5 md:px-7 py-4 border-b border-border sticky top-0 bg-bg/95 backdrop-blur z-10">
+                          <div className="min-w-0">
+                            <h3 className="font-display text-lg font-semibold truncate">{lightboxProject.title}</h3>
+                            <p className="mono text-[11px] text-textMuted mt-0.5">
+                              {lightboxMedia.length} {lightboxMedia.length === 1 ? "item" : "items"} in gallery
+                            </p>
                           </div>
-                          <button onClick={closeLightbox} className="text-white/70 hover:text-white flex items-center gap-1.5 text-sm">
-                            <X className="w-4 h-4" /> Close
+                          <button
+                            onClick={closeLightbox}
+                            className="shrink-0 w-9 h-9 rounded-full border border-border flex items-center justify-center text-textMuted hover:text-primary hover:border-primary transition"
+                            aria-label="Close gallery"
+                          >
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
 
-                        <div className="relative">
-                          <AnimatePresence mode="wait">
-                            <motion.div
-                              key={lightboxIndex}
-                              initial={{ opacity: 0, x: 24 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -24 }}
-                              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                            >
-                              {lightboxMedia[lightboxIndex]?.type === "video" ? (
-                                isVideoFile(lightboxMedia[lightboxIndex].src) ? (
-                                  <video src={lightboxMedia[lightboxIndex].src} controls autoPlay className="w-full rounded-xl max-h-[65vh]" />
-                                ) : (
-                                  <iframe
-                                    src={toEmbedUrl(lightboxMedia[lightboxIndex].src)}
-                                    title="Project demo"
-                                    allow="autoplay; fullscreen"
-                                    className="w-full aspect-video rounded-xl"
-                                  />
-                                )
-                              ) : (
-                                <img
-                                  src={lightboxMedia[lightboxIndex]?.src}
-                                  alt={lightboxProject.title}
-                                  className="w-full rounded-xl max-h-[65vh] object-contain bg-black"
-                                />
-                              )}
-                            </motion.div>
-                          </AnimatePresence>
+                        <div className="p-5 md:p-7 max-h-[75vh] overflow-y-auto">
+                          {lightboxProject.description && (
+                            <p className="text-textMuted text-sm leading-relaxed mb-6 max-w-2xl">{lightboxProject.description}</p>
+                          )}
 
-                          {lightboxMedia.length > 1 && (
-                            <>
-                              <button
-                                onClick={prevMedia}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
-                                aria-label="Previous"
-                              >
-                                <ChevronLeft className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={nextMedia}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition"
-                                aria-label="Next"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </>
+                          {lightboxMedia.length === 0 ? (
+                            <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
+                          ) : (
+                            <div className="grid sm:grid-cols-2 gap-5">
+                              {lightboxMedia.map((m, mi) => (
+                                <motion.div
+                                  key={mi}
+                                  initial={{ opacity: 0, y: 16 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.35, delay: Math.min(mi * 0.06, 0.36), ease: [0.22, 1, 0.36, 1] }}
+                                  className={`rounded-xl overflow-hidden border border-border bg-surface ${
+                                    m.type === "video" ? "sm:col-span-2" : ""
+                                  }`}
+                                >
+                                  {m.type === "video" ? (
+                                    isVideoFile(m.src) ? (
+                                      <video src={m.src} controls className="w-full max-h-[60vh] bg-black" />
+                                    ) : (
+                                      <iframe
+                                        src={toEmbedUrl(m.src)}
+                                        title={`${lightboxProject.title} demo`}
+                                        allow="autoplay; fullscreen"
+                                        className="w-full aspect-video"
+                                      />
+                                    )
+                                  ) : (
+                                    <img
+                                      src={m.src}
+                                      alt={m.caption || lightboxProject.title}
+                                      className="w-full max-h-[60vh] object-contain bg-black"
+                                    />
+                                  )}
+                                  {m.caption && (
+                                    <p className="text-textMuted text-sm leading-relaxed px-4 py-3 border-t border-border">
+                                      {m.caption}
+                                    </p>
+                                  )}
+                                </motion.div>
+                              ))}
+                            </div>
                           )}
                         </div>
-
-                        {lightboxMedia[lightboxIndex]?.caption && (
-                          <p className="text-white/70 text-sm mt-3 text-center leading-relaxed">
-                            {lightboxMedia[lightboxIndex].caption}
-                          </p>
-                        )}
-
-                        {lightboxMedia.length > 1 && (
-                          <div className="flex gap-2 mt-4 overflow-x-auto">
-                            {lightboxMedia.map((m, mi) => (
-                              <button
-                                key={mi}
-                                onClick={() => setLightboxIndex(mi)}
-                                className={`w-16 h-16 shrink-0 rounded-lg overflow-hidden border transition ${
-                                  mi === lightboxIndex ? "border-primary ring-2 ring-primary/40" : "border-white/20"
-                                }`}
-                              >
-                                {m.type === "video" ? (
-                                  <span className="w-full h-full flex items-center justify-center bg-white/10 text-white">
-                                    <PlayCircle className="w-5 h-5" />
-                                  </span>
-                                ) : (
-                                  <img src={m.src} alt="" className="w-full h-full object-cover" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      </motion.div>
                     </motion.div>
                   )}
                 </AnimatePresence>

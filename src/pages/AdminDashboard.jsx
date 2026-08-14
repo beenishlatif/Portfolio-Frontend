@@ -110,6 +110,9 @@ const AdminDashboard = () => {
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
 
+  // --- Upload state for the hero profile image gallery picker ---
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -323,6 +326,24 @@ const AdminDashboard = () => {
     });
   };
 
+  // --- Gallery upload helper for the hero profile image (single image, no caption) ---
+  const handleProfileImageSelect = async (file) => {
+    if (!file) return;
+    setUploadingProfileImage(true);
+    try {
+      const url = await uploadFile(file);
+      updateField("hero", "profileImage", url);
+    } catch (err) {
+      setMessage("Profile image upload failed.");
+    } finally {
+      setUploadingProfileImage(false);
+    }
+  };
+
+  const removeProfileImage = () => {
+    updateField("hero", "profileImage", "");
+  };
+
   const inputClass =
     "w-full bg-surfaceAlt border border-border rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition";
   const labelClass = "text-xs text-textMuted mono block mb-1.5 mt-4 tracking-wide";
@@ -430,8 +451,47 @@ const AdminDashboard = () => {
                   <input className={inputClass} value={form.hero.subtitle} onChange={(e) => updateField("hero", "subtitle", e.target.value)} />
                   <label className={labelClass}>Tagline</label>
                   <input className={inputClass} value={form.hero.tagline} onChange={(e) => updateField("hero", "tagline", e.target.value)} />
-                  <label className={labelClass}>Profile Image URL</label>
-                  <input className={inputClass} value={form.hero.profileImage} onChange={(e) => updateField("hero", "profileImage", e.target.value)} />
+
+                  {/* Profile image - gallery picker (same pattern as project screenshots/video) */}
+                  <label className={labelClass}>Profile Image</label>
+                  {form.hero.profileImage ? (
+                    <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
+                      <img
+                        src={form.hero.profileImage}
+                        alt="Profile"
+                        className="w-20 h-20 rounded-lg object-cover border border-border shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <label className={galleryBtnClass}>
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          {uploadingProfileImage ? "Uploading..." : "Replace from Gallery"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingProfileImage}
+                            onChange={(e) => handleProfileImageSelect(e.target.files?.[0])}
+                          />
+                        </label>
+                        <button onClick={removeProfileImage} className="text-xs text-red-400 mt-2 ml-1 hover:underline flex items-center gap-1">
+                          <X className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className={galleryBtnClass}>
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      {uploadingProfileImage ? "Uploading..." : "Choose Image from Gallery"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingProfileImage}
+                        onChange={(e) => handleProfileImageSelect(e.target.files?.[0])}
+                      />
+                    </label>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelClass}>Resume Link</label>

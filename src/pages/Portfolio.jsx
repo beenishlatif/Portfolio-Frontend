@@ -21,8 +21,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Download,
-  Check,
-  Palette,
 } from "lucide-react";
 
 // lucide-react dropped brand/logo icons (Github, Twitter, etc.) in newer
@@ -402,30 +400,44 @@ const SkillIcon = ({ name, className = "w-8 h-8" }) => {
   );
 };
 
-// One skill = one icon card. Size, spacing and hover treatment stay
-// uniform across every card so the grid reads as a clean, scannable wall
-// of technologies rather than a data-driven bento layout.
+// One skill = one horizontal row card: icon, name, level badge and an
+// animated progress bar. Rows stack in a responsive multi-column list so
+// the section reads as a clean, scannable skill sheet instead of a grid
+// of icon tiles.
 const SkillCard = ({ skill, delay = 0 }) => {
   const meta = skillLevelMeta(skill.level ?? 0);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, x: -16 }}
+      whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
       onMouseMove={handleCardSpotlight}
-      className="group relative flex flex-col items-center justify-center gap-3.5 bg-surface border border-border rounded-2xl px-4 py-7 overflow-hidden hover:border-primary/50 hover:-translate-y-1.5 hover:shadow-[0_18px_36px_-22px_rgba(0,0,0,0.45)] transition-all"
+      className="group relative flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4 overflow-hidden hover:border-primary/50 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-20px_rgba(0,0,0,0.4)] transition-all"
     >
       <Spotlight size={160} />
-      <span className="relative w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-surfaceAlt border border-border flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:border-primary/40 transition-all duration-300">
-        <SkillIcon name={skill.name} className="w-8 h-8 md:w-9 md:h-9" />
+      <span className="relative w-12 h-12 rounded-xl bg-surfaceAlt border border-border flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-primary/40 transition-all duration-300">
+        <SkillIcon name={skill.name} className="w-6 h-6" />
       </span>
-      <span className="relative mono text-xs md:text-[13px] font-medium text-text text-center tracking-wide truncate max-w-full">
-        {skill.name}
-      </span>
-      {typeof skill.level === "number" && skill.level > 0 && (
-        <span className={`relative mono text-[9px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
-      )}
+      <div className="relative flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="mono text-sm font-medium text-text truncate">{skill.name}</span>
+          {typeof skill.level === "number" && skill.level > 0 && (
+            <span className={`mono text-[9px] px-2 py-0.5 rounded-full shrink-0 ${meta.className}`}>{meta.label}</span>
+          )}
+        </div>
+        {typeof skill.level === "number" && skill.level > 0 && (
+          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              whileInView={{ width: `${skill.level}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.9, delay: delay + 0.15, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+            />
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -524,8 +536,6 @@ const Portfolio = ({ slugProp }) => {
   const [activeSection, setActiveSection] = useState("hero");
   const [scrolled, setScrolled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const themeMenuRef = useRef(null);
 
   const [lightboxProject, setLightboxProject] = useState(null);
   const [lightboxMedia, setLightboxMedia] = useState([]);
@@ -611,18 +621,6 @@ const Portfolio = ({ slugProp }) => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [lightboxProject]);
-
-  // Close the theme dropdown on outside click.
-  useEffect(() => {
-    if (!themeMenuOpen) return;
-    const handleClick = (e) => {
-      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target)) {
-        setThemeMenuOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", handleClick);
-    return () => window.removeEventListener("mousedown", handleClick);
-  }, [themeMenuOpen]);
 
   // Every time the "page" changes, land at the top of it and close the
   // mobile menu — mirrors a real page navigation instead of a scroll jump.
@@ -711,8 +709,6 @@ const Portfolio = ({ slugProp }) => {
     setLightboxMedia([]);
   };
 
-  const activeThemeMeta = THEMES.find((t) => t.id === theme) || THEMES[0];
-
   return (
     <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
       {/* ===== Premium Navbar ===== */}
@@ -784,118 +780,21 @@ const Portfolio = ({ slugProp }) => {
                 </a>
               )}
 
-              {/* Theme switcher — premium circular trigger with a soft glowing ring that
-                  matches the active theme's gradient, opening into a polished glass
-                  colour-picker panel with a gradient header. */}
-              <div className="relative" ref={themeMenuRef}>
-                <button
-                  onClick={() => setThemeMenuOpen((v) => !v)}
-                  aria-label="Change theme"
-                  aria-expanded={themeMenuOpen}
-                  className={`group relative flex items-center justify-center w-9 h-9 rounded-full transition-transform duration-300 ${
-                    themeMenuOpen ? "scale-95" : "hover:scale-105"
-                  }`}
-                >
-                  <span
-                    className="absolute inset-0 rounded-full opacity-90 group-hover:opacity-100 transition-opacity animate-[spin_6s_linear_infinite]"
-                    style={{
-                      background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
-                    }}
-                  />
-                  <span
-                    className={`absolute inset-0 rounded-full blur-md transition-opacity duration-300 ${
-                      themeMenuOpen ? "opacity-70" : "opacity-0 group-hover:opacity-60"
+              {/* Theme switcher — quick-pick circle buttons shown directly in the
+                  navbar (same pattern as the admin dashboard sidebar), no dropdown. */}
+              <div className="hidden sm:flex items-center gap-1.5 pl-1">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    title={t.label}
+                    aria-label={`Switch to ${t.label} theme`}
+                    onClick={() => setTheme(t.id)}
+                    className={`w-6 h-6 rounded-full border-2 transition-all ${
+                      theme === t.id ? "border-primary scale-110" : "border-border hover:scale-105"
                     }`}
-                    style={{
-                      background: `conic-gradient(from 180deg, var(--color-primary), var(--color-accent), var(--color-primary))`,
-                    }}
+                    style={{ background: t.swatch || "var(--color-primary)" }}
                   />
-                  <span className="absolute inset-[3px] rounded-full bg-bg/95 backdrop-blur flex items-center justify-center">
-                    <Palette className="w-4 h-4 text-text group-hover:text-primary transition-colors" strokeWidth={2} />
-                  </span>
-                  <span
-                    className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-bg shadow-sm"
-                    style={{ background: activeThemeMeta?.swatch || "var(--color-primary)" }}
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {themeMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.94 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.94 }}
-                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute right-0 mt-3 w-72 rounded-3xl border border-border bg-surface/95 backdrop-blur-xl shadow-[0_28px_60px_-18px_rgba(0,0,0,0.6)] overflow-hidden z-40"
-                    >
-                      {/* Gradient header */}
-                      <div
-                        className="relative px-5 py-4 overflow-hidden"
-                        style={{ background: `linear-gradient(135deg, var(--color-primary), var(--color-accent))` }}
-                      >
-                        <div
-                          className="pointer-events-none absolute inset-0 opacity-20"
-                          style={{
-                            backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-                            backgroundSize: "14px 14px",
-                          }}
-                        />
-                        <div className="relative flex items-center gap-2.5">
-                          <span className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                            <Palette className="w-4 h-4 text-white" />
-                          </span>
-                          <div>
-                            <p className="text-white text-sm font-semibold font-display leading-tight">Appearance</p>
-                            <p className="text-white/70 text-[11px] mono">{activeThemeMeta?.label} active</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4">
-                        <div className="grid grid-cols-4 gap-3">
-                          {THEMES.map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => {
-                                setTheme(t.id);
-                                setThemeMenuOpen(false);
-                              }}
-                              title={t.label}
-                              className="group/swatch flex flex-col items-center gap-1.5"
-                            >
-                              <span
-                                className={`relative w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200 ${
-                                  theme === t.id
-                                    ? "ring-2 ring-primary ring-offset-2 ring-offset-surface scale-105 shadow-[0_6px_18px_-6px_var(--color-primary)]"
-                                    : "ring-1 ring-border group-hover/swatch:ring-2 group-hover/swatch:ring-primary/40 group-hover/swatch:scale-105"
-                                }`}
-                                style={{ background: t.swatch || "var(--color-primary)" }}
-                              >
-                                {theme === t.id && (
-                                  <motion.span
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                                    className="w-5 h-5 rounded-full bg-white/95 flex items-center justify-center"
-                                  >
-                                    <Check className="w-3 h-3 text-primary" strokeWidth={3} />
-                                  </motion.span>
-                                )}
-                              </span>
-                              <span
-                                className={`text-[10px] truncate max-w-[3.5rem] text-center transition-colors ${
-                                  theme === t.id ? "text-primary font-medium" : "text-textMuted group-hover/swatch:text-text"
-                                }`}
-                              >
-                                {t.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                ))}
               </div>
 
               {/* Mobile menu toggle */}
@@ -936,6 +835,21 @@ const Portfolio = ({ slugProp }) => {
                     {s.label}
                   </button>
                 ))}
+                {/* Theme quick-picks also shown in the mobile menu */}
+                <div className="flex items-center gap-2 px-4 py-2.5">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      title={t.label}
+                      aria-label={`Switch to ${t.label} theme`}
+                      onClick={() => setTheme(t.id)}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${
+                        theme === t.id ? "border-primary scale-110" : "border-border"
+                      }`}
+                      style={{ background: t.swatch || "var(--color-primary)" }}
+                    />
+                  ))}
+                </div>
               </div>
             </motion.nav>
           )}
@@ -953,155 +867,187 @@ const Portfolio = ({ slugProp }) => {
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
             {activeSection === "hero" && (
-              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-3xl mx-auto w-full text-center">
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-6xl mx-auto w-full">
                 <AuroraBackground />
 
-                {portfolio.hero.availableForWork && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full bg-surface/80 backdrop-blur border border-border text-xs shadow-sm"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                    </span>
-                    Available for Freelance
-                  </motion.div>
-                )}
-
-                <motion.p
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                  className="mono text-accent text-sm tracking-[0.25em] mb-4 uppercase"
-                >
-                  {portfolio.hero.tagline || "Welcome to my portfolio"}
-                </motion.p>
-
-                <motion.h1
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.6 }}
-                  className="font-display text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-5 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-text via-text to-primary"
-                >
-                  {portfolio.hero.title || owner.name}
-                </motion.h1>
-
-                <p className="mono text-lg md:text-2xl text-primary mb-6 h-8 font-medium">
-                  {displayText}
-                  <span className="animate-pulse">|</span>
-                </p>
-
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-textMuted text-base md:text-lg max-w-xl mx-auto leading-relaxed"
-                >
-                  {portfolio.hero.subtitle}
-                </motion.p>
-
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-7">
-                  {portfolio.hero.location && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                        <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                        <circle cx="12" cy="10" r="2.5" />
-                      </svg>
-                      {portfolio.hero.location}
-                    </span>
-                  )}
-                  {portfolio.hero.yearsOfExperience > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 7v5l3 3" />
-                      </svg>
-                      {portfolio.hero.yearsOfExperience}+ Years Experience
-                    </span>
-                  )}
-                </div>
-
-                {highlightTeaser.length > 0 && (
-                  <ul className="mt-8 space-y-2 inline-block text-left">
-                    {highlightTeaser.map((h, i) => (
-                      <motion.li
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.35 + i * 0.08 }}
-                        className="flex items-start gap-2 text-sm text-text"
+                {/* Two-column intro: text on the left, profile image on the right
+                    (stacks to a single centered column on small screens). */}
+                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                  <div className="text-center lg:text-left">
+                    {portfolio.hero.availableForWork && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full bg-surface/80 backdrop-blur border border-border text-xs shadow-sm"
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                          <path d="m5 13 4 4L19 7" />
-                        </svg>
-                        {h}
-                      </motion.li>
-                    ))}
-                  </ul>
-                )}
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                        </span>
+                        Available for Freelance
+                      </motion.div>
+                    )}
 
-                {topSkills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 justify-center mt-8">
-                    {topSkills.map((s, i) => (
-                      <span
-                        key={i}
-                        className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border hover:border-primary/50 transition"
-                      >
-                        {s.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-10">
-                  <button
-                    onClick={() => goToSection("projects")}
-                    className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
-                  >
-                    View Projects
-                  </button>
-                  <button
-                    onClick={() => goToSection("contact")}
-                    className="px-7 py-3 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition font-medium"
-                  >
-                    Hire Me
-                  </button>
-                  {portfolio.hero.resumeLink && (
-                    <a
-                      href={portfolio.hero.resumeLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-primary hover:underline transition font-medium"
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="mono text-accent text-sm tracking-[0.25em] mb-4 uppercase"
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                        <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
-                      </svg>
-                      Download Resume
-                    </a>
-                  )}
-                </div>
+                      {portfolio.hero.tagline || "Welcome to my portfolio"}
+                    </motion.p>
 
-                {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-                  <div className="flex items-center justify-center gap-3 mt-9">
-                    {Object.entries(portfolio.contact.socialLinks || {}).map(
-                      ([key, val]) =>
-                        val && (
-                          <a
-                            key={key}
-                            href={val}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                    <motion.h1
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.6 }}
+                      className="font-display text-4xl md:text-6xl lg:text-6xl font-bold leading-[1.05] mb-5 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-text via-text to-primary"
+                    >
+                      {portfolio.hero.title || owner.name}
+                    </motion.h1>
+
+                    <p className="mono text-lg md:text-2xl text-primary mb-6 h-8 font-medium">
+                      {displayText}
+                      <span className="animate-pulse">|</span>
+                    </p>
+
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-textMuted text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed"
+                    >
+                      {portfolio.hero.subtitle}
+                    </motion.p>
+
+                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-7">
+                      {portfolio.hero.location && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                            <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                            <circle cx="12" cy="10" r="2.5" />
+                          </svg>
+                          {portfolio.hero.location}
+                        </span>
+                      )}
+                      {portfolio.hero.yearsOfExperience > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 3" />
+                          </svg>
+                          {portfolio.hero.yearsOfExperience}+ Years Experience
+                        </span>
+                      )}
+                    </div>
+
+                    {highlightTeaser.length > 0 && (
+                      <ul className="mt-8 space-y-2 inline-block text-left">
+                        {highlightTeaser.map((h, i) => (
+                          <motion.li
+                            key={i}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.35 + i * 0.08 }}
+                            className="flex items-start gap-2 text-sm text-text"
                           >
-                            {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                          </a>
-                        )
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
+                              <path d="m5 13 4 4L19 7" />
+                            </svg>
+                            {h}
+                          </motion.li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {topSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 justify-center lg:justify-start mt-8">
+                        {topSkills.map((s, i) => (
+                          <span
+                            key={i}
+                            className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border hover:border-primary/50 transition"
+                          >
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-10">
+                      <button
+                        onClick={() => goToSection("projects")}
+                        className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                      >
+                        View Projects
+                      </button>
+                      <button
+                        onClick={() => goToSection("contact")}
+                        className="px-7 py-3 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition font-medium"
+                      >
+                        Hire Me
+                      </button>
+                      {portfolio.hero.resumeLink && (
+                        <a
+                          href={portfolio.hero.resumeLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-primary hover:underline transition font-medium"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
+                          </svg>
+                          Download Resume
+                        </a>
+                      )}
+                    </div>
+
+                    {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
+                      <div className="flex items-center justify-center lg:justify-start gap-3 mt-9">
+                        {Object.entries(portfolio.contact.socialLinks || {}).map(
+                          ([key, val]) =>
+                            val && (
+                              <a
+                                key={key}
+                                href={val}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                              >
+                                {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                              </a>
+                            )
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
+
+                  {/* Right side — developer/user profile image. Falls back to a
+                      soft gradient monogram tile when no image has been added yet. */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative flex justify-center lg:justify-end"
+                  >
+                    <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96">
+                      <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/20 to-accent/20 blur-2xl -z-10" />
+                      {portfolio.hero.profileImage ? (
+                        <img
+                          src={portfolio.hero.profileImage}
+                          alt={owner.name}
+                          className="w-full h-full object-cover rounded-[1.75rem] border border-border shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)]"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-[1.75rem] border border-border bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)]">
+                          <span className="font-display text-7xl font-bold text-primary/40">
+                            {owner.name?.[0]?.toUpperCase() || "•"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </div>
 
                 {portfolio.hero.stats?.length > 0 && (
                   <div className="mt-16 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
@@ -1193,12 +1139,9 @@ const Portfolio = ({ slugProp }) => {
                     </Reveal>
 
                     {portfolio.about.approach && (
-                      <Reveal delay={0.05} className="relative bg-surface border border-border rounded-2xl p-7 md:p-8 overflow-hidden">
-                        <svg viewBox="0 0 24 24" fill="currentColor" className="absolute -top-2 -left-1 w-16 h-16 text-primary/10">
-                          <path d="M9.17 6C6.87 8.06 5 11.06 5 14.83c0 3.13 1.87 5.17 4.35 5.17 2.13 0 3.65-1.65 3.65-3.7 0-2.09-1.48-3.5-3.13-3.5-.28 0-.52.02-.63.05.2-2.5 2.02-4.7 4.2-6.24L9.17 6Zm9.13 0c-2.3 2.06-4.17 5.06-4.17 8.83 0 3.13 1.87 5.17 4.35 5.17 2.13 0 3.65-1.65 3.65-3.7 0-2.09-1.48-3.5-3.13-3.5-.28 0-.52.02-.63.05.2-2.5 2.02-4.7 4.2-6.24L18.3 6Z" />
-                        </svg>
+                      <Reveal delay={0.05} className="bg-surface border border-border rounded-2xl p-7 md:p-8">
                         <h3 className="font-display text-sm uppercase tracking-widest text-primary mb-4">My Approach</h3>
-                        <p className="text-textMuted leading-relaxed whitespace-pre-line relative">{portfolio.about.approach}</p>
+                        <p className="text-textMuted leading-relaxed whitespace-pre-line">{portfolio.about.approach}</p>
                       </Reveal>
                     )}
 
@@ -1357,8 +1300,8 @@ const Portfolio = ({ slugProp }) => {
                       </div>
                     )}
 
-                    {/* Icon grid — every skill shows its real brand icon, uniform card
-                        size, so the section reads as a clean, scannable tech wall. */}
+                    {/* Skill rows — icon, name, level badge and progress bar, stacked
+                        in a responsive multi-column list. */}
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={skillFilter}
@@ -1366,7 +1309,7 @@ const Portfolio = ({ slugProp }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5 mt-10"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-10"
                       >
                         {visibleSkills.map((s, i) => (
                           <SkillCard key={s.name + i} skill={s} delay={Math.min(i * 0.04, 0.4)} />

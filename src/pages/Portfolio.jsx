@@ -139,7 +139,7 @@ const Reveal = ({ children, className, delay = 0 }) => (
 );
 
 // Groups a flat skills array into { category: [skills] } while preserving
-// first-seen category order - used by the premium skills grid.
+// first-seen category order - used by the skills filter pills + grid.
 const groupSkillsByCategory = (skills) => {
   const groups = {};
   skills.forEach((s) => {
@@ -242,21 +242,6 @@ const skillLevelMeta = (level = 0) => {
   return { label: "Familiar", className: "bg-surfaceAlt text-textMuted" };
 };
 
-// A skill's proficiency decides how much room it gets — this is the
-// signature idea of the redesigned Skills page: the layout itself is the
-// data visualization, not a decoration bolted onto uniform cards.
-const skillTier = (level = 0) => {
-  if (level >= 90) return "hero";
-  if (level >= 70) return "tall";
-  return "compact";
-};
-
-const TIER_SPAN = {
-  hero: "col-span-2 row-span-2",
-  tall: "row-span-2",
-  compact: "",
-};
-
 // Tracks pointer position on a card and exposes it as CSS vars, driving a
 // radial-gradient glow that follows the cursor — cheap, no re-renders.
 const handleCardSpotlight = (e) => {
@@ -276,107 +261,175 @@ const Spotlight = ({ size = 200, opacity = 0.09 }) => (
   />
 );
 
-// Radial ring instead of a linear bar — reads as a dial/gauge, doubles as
-// the card's focal graphic rather than a decoration bolted on the side.
-const CircularProgress = ({ level, size = 72, stroke = 6, delay = 0 }) => {
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
+// --- Skills section: real brand icons ---------------------------------
+// Maps common skill-name spellings/variants to the slug used by the
+// skillicons.dev icon service, so admins can type "Node.js", "NodeJS",
+// "MongoDB", "Mongo", etc. and still get the correct logo automatically.
+const SKILL_ICON_ALIASES = {
+  html: "html", html5: "html",
+  css: "css", css3: "css",
+  sass: "sass", scss: "sass",
+  less: "less",
+  javascript: "js", js: "js",
+  typescript: "ts", ts: "ts",
+  react: "react", reactjs: "react",
+  redux: "redux",
+  vue: "vue", vuejs: "vue",
+  angular: "angular",
+  svelte: "svelte",
+  nextjs: "nextjs", next: "nextjs",
+  nuxt: "nuxtjs", nuxtjs: "nuxtjs",
+  gatsby: "gatsby",
+  nodejs: "nodejs", node: "nodejs",
+  express: "express", expressjs: "express",
+  nestjs: "nestjs", nest: "nestjs",
+  deno: "deno",
+  python: "python",
+  django: "django",
+  flask: "flask",
+  fastapi: "fastapi",
+  java: "java",
+  spring: "spring",
+  kotlin: "kotlin",
+  php: "php",
+  laravel: "laravel",
+  csharp: "cs",
+  cpp: "cpp",
+  c: "c",
+  go: "go", golang: "go",
+  rust: "rust",
+  ruby: "ruby",
+  rails: "rails",
+  swift: "swift",
+  dart: "dart",
+  flutter: "flutter",
+  mongodb: "mongodb", mongo: "mongodb", mongoose: "mongodb",
+  mysql: "mysql",
+  postgresql: "postgres", postgres: "postgres",
+  sqlite: "sqlite",
+  redis: "redis",
+  firebase: "firebase",
+  supabase: "supabase",
+  graphql: "graphql",
+  apollo: "apollo",
+  docker: "docker",
+  kubernetes: "kubernetes", k8s: "kubernetes",
+  aws: "aws",
+  gcp: "gcp",
+  azure: "azure",
+  git: "git",
+  github: "github",
+  gitlab: "gitlab",
+  bitbucket: "bitbucket",
+  figma: "figma",
+  xd: "xd",
+  illustrator: "ai",
+  photoshop: "ps",
+  vscode: "vscode",
+  vim: "vim",
+  linux: "linux",
+  bash: "bash",
+  npm: "npm",
+  yarn: "yarn",
+  webpack: "webpack",
+  vite: "vite",
+  jest: "jest",
+  cypress: "cypress",
+  postman: "postman",
+  nginx: "nginx",
+  apache: "apache",
+  wordpress: "wordpress",
+  tailwind: "tailwind", tailwindcss: "tailwind",
+  bootstrap: "bootstrap",
+  materialui: "materialui", mui: "materialui",
+  threejs: "threejs",
+  electron: "electron",
+  unity: "unity",
+  androidstudio: "androidstudio",
+  solidity: "solidity",
+  matlab: "matlab",
+  jenkins: "jenkins",
+  terraform: "terraform",
+  socketio: "nodejs",
+  heroku: "heroku",
+  vercel: "vercel",
+  netlify: "netlify",
+  cloudflare: "cloudflare",
+  jwt: "js",
+  webrtc: "js",
+  r: "r",
+};
+
+const normalizeSkillKey = (name = "") => name.toLowerCase().trim();
+
+const getSkillIconSlug = (name) => {
+  const raw = normalizeSkillKey(name);
+  if (SKILL_ICON_ALIASES[raw]) return SKILL_ICON_ALIASES[raw];
+  const stripped = raw.replace(/[.\-_/]/g, "").replace(/\s+/g, "");
+  if (SKILL_ICON_ALIASES[stripped]) return SKILL_ICON_ALIASES[stripped];
+  const found = Object.keys(SKILL_ICON_ALIASES)
+    .sort((a, b) => b.length - a.length)
+    .find((key) => stripped.includes(key));
+  return found ? SKILL_ICON_ALIASES[found] : null;
+};
+
+// Renders a real brand icon (via skillicons.dev) for known skills, and
+// falls back to a clean letter-monogram badge for anything unrecognized
+// (custom tools, soft skills, etc.) so the grid never shows a broken image.
+const SkillIcon = ({ name, className = "w-8 h-8" }) => {
+  const slug = getSkillIconSlug(name);
+  const [failed, setFailed] = useState(false);
+
+  if (!slug || failed) {
+    return (
+      <span
+        className={`${className} rounded-lg bg-gradient-to-br from-primary/25 to-accent/25 text-primary flex items-center justify-center font-display font-bold`}
+      >
+        {name?.[0]?.toUpperCase() || "?"}
+      </span>
+    );
+  }
+
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={radius} className="text-surfaceAlt" stroke="currentColor" strokeWidth={stroke} fill="none" />
-      <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke="url(#skillRingGradient)"
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        fill="none"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        whileInView={{ strokeDashoffset: circumference - (level / 100) * circumference }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.1, delay, ease: "easeOut" }}
-      />
-    </svg>
+    <img
+      src={`https://skillicons.dev/icons?i=${slug}`}
+      alt={name}
+      className={`${className} object-contain`}
+      loading="lazy"
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
   );
 };
 
-const BentoSkillTile = ({ skill, delay = 0 }) => {
-  const level = skill.level ?? 0;
-  const tier = skillTier(level);
-  const meta = skillLevelMeta(level);
-  const category = skill.category || "General";
-
-  if (tier === "hero") {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.94 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
-        onMouseMove={handleCardSpotlight}
-        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-6 flex items-center gap-5 overflow-hidden bg-gradient-to-br from-primary/15 via-surface to-accent/10 border border-primary/30 hover:border-primary/60 hover:-translate-y-1 transition-all`}
-      >
-        <Spotlight size={260} opacity={0.1} />
-        <div className="pointer-events-none absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-primary/25 blur-[70px] group-hover:bg-primary/35 transition-colors duration-300" />
-        <div className="relative shrink-0 flex items-center justify-center">
-          <CircularProgress level={level} size={88} stroke={7} delay={delay} />
-          <span className="absolute font-display text-sm font-bold text-text">{level}%</span>
-        </div>
-        <div className="relative min-w-0">
-          <span className="mono text-[10px] uppercase tracking-widest text-primary">{category}</span>
-          <h4 className="font-display text-xl md:text-2xl font-bold mt-1 mb-2 truncate">{skill.name}</h4>
-          <span className={`mono text-[10px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
-        </div>
-      </motion.div>
-    );
-  }
-
-  if (tier === "tall") {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
-        onMouseMove={handleCardSpotlight}
-        className={`group relative ${TIER_SPAN[tier]} rounded-2xl p-5 flex flex-col items-center justify-center text-center gap-3 overflow-hidden bg-surface border border-border hover:border-primary/50 hover:-translate-y-1 hover:shadow-[0_16px_32px_-20px_rgba(0,0,0,0.35)] transition-all`}
-      >
-        <Spotlight size={180} />
-        <span className="relative mono text-[10px] uppercase tracking-widest text-textMuted">{category}</span>
-        <div className="relative flex items-center justify-center">
-          <CircularProgress level={level} size={58} stroke={5} delay={delay} />
-          <span className="absolute mono text-[10px] font-semibold text-text">{level}%</span>
-        </div>
-        <div className="relative">
-          <h4 className="font-semibold text-sm mb-1.5 truncate max-w-[9rem]">{skill.name}</h4>
-          <span className={`mono text-[10px] px-2 py-0.5 rounded-full inline-block ${meta.className}`}>{meta.label}</span>
-        </div>
-      </motion.div>
-    );
-  }
-
+// One skill = one icon card. Size, spacing and hover treatment stay
+// uniform across every card so the grid reads as a clean, scannable wall
+// of technologies rather than a data-driven bento layout.
+const SkillCard = ({ skill, delay = 0 }) => {
+  const meta = skillLevelMeta(skill.level ?? 0);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
+      viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
       onMouseMove={handleCardSpotlight}
-      className="group relative rounded-2xl p-4 flex items-center gap-3 overflow-hidden bg-surface border border-border hover:border-primary/50 hover:-translate-y-0.5 transition-all"
+      className="group relative flex flex-col items-center justify-center gap-3.5 bg-surface border border-border rounded-2xl px-4 py-7 overflow-hidden hover:border-primary/50 hover:-translate-y-1.5 hover:shadow-[0_18px_36px_-22px_rgba(0,0,0,0.45)] transition-all"
     >
-      <Spotlight size={140} />
-      <div className="relative shrink-0 flex items-center justify-center">
-        <CircularProgress level={level} size={38} stroke={4} delay={delay} />
-      </div>
-      <div className="relative min-w-0 flex-1">
-        <h4 className="font-semibold text-xs truncate">{skill.name}</h4>
-        <span className={`mono text-[9px] px-1.5 py-0.5 rounded-full inline-block mt-1 ${meta.className}`}>{meta.label}</span>
-      </div>
+      <Spotlight size={160} />
+      <span className="relative w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-surfaceAlt border border-border flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:-rotate-3 group-hover:border-primary/40 transition-all duration-300">
+        <SkillIcon name={skill.name} className="w-8 h-8 md:w-9 md:h-9" />
+      </span>
+      <span className="relative mono text-xs md:text-[13px] font-medium text-text text-center tracking-wide truncate max-w-full">
+        {skill.name}
+      </span>
+      {typeof skill.level === "number" && skill.level > 0 && (
+        <span className={`relative mono text-[9px] px-2 py-0.5 rounded-full ${meta.className}`}>{meta.label}</span>
+      )}
     </motion.div>
   );
 };
+// ------------------------------------------------------------------------
 
 const isVideoFile = (url = "") => /^data:video\//i.test(url) || /\.(mp4|webm|mov)(\?.*)?$/i.test(url);
 const toEmbedUrl = (url = "") => {
@@ -1278,18 +1331,34 @@ const Portfolio = ({ slugProp }) => {
 
                 {portfolio.skills.length > 0 && (
                   <>
-                    {/* Shared gradient used by every circular progress ring below */}
-                    <svg width="0" height="0" className="absolute">
-                      <defs>
-                        <linearGradient id="skillRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="var(--color-primary)" />
-                          <stop offset="100%" stopColor="var(--color-accent)" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
+                    {/* Category filter pills — only shown when skills span more than one category */}
+                    {Object.keys(skillGroups).length > 1 && (
+                      <div className="flex flex-wrap gap-2 mt-8">
+                        {["All", ...Object.keys(skillGroups)].map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setSkillFilter(cat)}
+                            className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
+                              skillFilter === cat
+                                ? "text-white border-transparent"
+                                : "border-border text-textMuted hover:border-primary/50 hover:text-text"
+                            }`}
+                          >
+                            {skillFilter === cat && (
+                              <motion.span
+                                layoutId="skill-filter-pill"
+                                className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                              />
+                            )}
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
-                    {/* Bento wall — tile size is driven by each skill's own level, so
-                        the strongest skills are literally the biggest things on screen */}
+                    {/* Icon grid — every skill shows its real brand icon, uniform card
+                        size, so the section reads as a clean, scannable tech wall. */}
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={skillFilter}
@@ -1297,10 +1366,10 @@ const Portfolio = ({ slugProp }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-[128px] gap-4 mt-10 [grid-auto-flow:dense]"
+                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5 mt-10"
                       >
                         {visibleSkills.map((s, i) => (
-                          <BentoSkillTile key={s.name + i} skill={s} delay={Math.min(i * 0.05, 0.4)} />
+                          <SkillCard key={s.name + i} skill={s} delay={Math.min(i * 0.04, 0.4)} />
                         ))}
                       </motion.div>
                     </AnimatePresence>

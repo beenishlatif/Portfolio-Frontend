@@ -867,210 +867,104 @@ const Portfolio = ({ slugProp }) => {
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
             {activeSection === "hero" && (
-              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-6xl mx-auto w-full">
-                <AuroraBackground />
-
-                {/* Two-column intro: text on the left, profile image on the right
-                    (stacks to a single centered column on small screens). */}
-                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                  <div className="text-center lg:text-left">
-                    {portfolio.hero.availableForWork && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full bg-surface/80 backdrop-blur border border-border text-xs shadow-sm"
-                      >
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-3xl mx-auto w-full">
+                {/* ===== Minimal centered hero =====
+                    Image → Name → Role → Location → Buttons, all stacked and
+                    centered. Everything else (services / why choose me / stats)
+                    follows below, in that order, once the intro block ends. */}
+                <div className="flex flex-col items-center text-center">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative w-40 h-40 sm:w-48 sm:h-48"
+                  >
+                    <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-2xl -z-10" />
+                    {portfolio.hero.profileImage ? (
+                      <img
+                        src={portfolio.hero.profileImage}
+                        alt={owner.name}
+                        className="w-full h-full object-cover rounded-full border border-border shadow-[0_20px_45px_-20px_rgba(0,0,0,0.4)]"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full border border-border bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center shadow-[0_20px_45px_-20px_rgba(0,0,0,0.35)]">
+                        <span className="font-display text-5xl font-bold text-primary/40">
+                          {owner.name?.[0]?.toUpperCase() || "•"}
                         </span>
-                        Available for Freelance
-                      </motion.div>
+                      </div>
                     )}
+                  </motion.div>
 
+                  <motion.h1
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, duration: 0.5 }}
+                    className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-7"
+                  >
+                    {owner.name}
+                  </motion.h1>
+
+                  {(portfolio.hero.title || portfolio.hero.roles?.[0]) && (
                     <motion.p
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.15 }}
-                      className="mono text-accent text-sm tracking-[0.25em] mb-4 uppercase"
+                      transition={{ delay: 0.2 }}
+                      className="mono text-primary text-sm md:text-base mt-2"
                     >
-                      {portfolio.hero.tagline || "Welcome to my portfolio"}
+                      {portfolio.hero.title || portfolio.hero.roles?.[0]}
                     </motion.p>
+                  )}
 
-                    <motion.h1
-                      initial={{ opacity: 0, y: 18 }}
+                  {portfolio.hero.location && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.6 }}
-                      className="font-display text-4xl md:text-6xl lg:text-6xl font-bold leading-[1.05] mb-5 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-text via-text to-primary"
+                      transition={{ delay: 0.25 }}
+                      className="flex items-center gap-1.5 text-sm text-textMuted mt-3"
                     >
-                      {portfolio.hero.title || owner.name}
-                    </motion.h1>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                        <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
+                        <circle cx="12" cy="10" r="2.5" />
+                      </svg>
+                      {portfolio.hero.location}
+                    </motion.p>
+                  )}
 
-                    <p className="mono text-lg md:text-2xl text-primary mb-6 h-8 font-medium">
-                      {displayText}
-                      <span className="animate-pulse">|</span>
-                    </p>
-
+                  {portfolio.hero.subtitle && (
                     <motion.p
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.3 }}
-                      className="text-textMuted text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed"
+                      className="text-textMuted text-sm md:text-base leading-relaxed max-w-md mt-5"
                     >
                       {portfolio.hero.subtitle}
                     </motion.p>
+                  )}
 
-                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-7">
-                      {portfolio.hero.location && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                            <circle cx="12" cy="10" r="2.5" />
-                          </svg>
-                          {portfolio.hero.location}
-                        </span>
-                      )}
-                      {portfolio.hero.yearsOfExperience > 0 && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 3" />
-                          </svg>
-                          {portfolio.hero.yearsOfExperience}+ Years Experience
-                        </span>
-                      )}
-                    </div>
-
-                    {highlightTeaser.length > 0 && (
-                      <ul className="mt-8 space-y-2 inline-block text-left">
-                        {highlightTeaser.map((h, i) => (
-                          <motion.li
-                            key={i}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.35 + i * 0.08 }}
-                            className="flex items-start gap-2 text-sm text-text"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                              <path d="m5 13 4 4L19 7" />
-                            </svg>
-                            {h}
-                          </motion.li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {topSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 justify-center lg:justify-start mt-8">
-                        {topSkills.map((s, i) => (
-                          <span
-                            key={i}
-                            className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border hover:border-primary/50 transition"
-                          >
-                            {s.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-10">
-                      <button
-                        onClick={() => goToSection("projects")}
-                        className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
-                      >
-                        View Projects
-                      </button>
-                      <button
-                        onClick={() => goToSection("contact")}
-                        className="px-7 py-3 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition font-medium"
-                      >
-                        Hire Me
-                      </button>
-                      {portfolio.hero.resumeLink && (
-                        <a
-                          href={portfolio.hero.resumeLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-primary hover:underline transition font-medium"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
-                          </svg>
-                          Download Resume
-                        </a>
-                      )}
-                    </div>
-
-                    {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-                      <div className="flex items-center justify-center lg:justify-start gap-3 mt-9">
-                        {Object.entries(portfolio.contact.socialLinks || {}).map(
-                          ([key, val]) =>
-                            val && (
-                              <a
-                                key={key}
-                                href={val}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
-                              >
-                                {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                              </a>
-                            )
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right side — developer/user profile image. Falls back to a
-                      soft gradient monogram tile when no image has been added yet. */}
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.94 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative flex justify-center lg:justify-end"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="flex flex-wrap items-center justify-center gap-3 mt-8"
                   >
-                    <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96">
-                      <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/20 to-accent/20 blur-2xl -z-10" />
-                      {portfolio.hero.profileImage ? (
-                        <img
-                          src={portfolio.hero.profileImage}
-                          alt={owner.name}
-                          className="w-full h-full object-cover rounded-[1.75rem] border border-border shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)]"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-[1.75rem] border border-border bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)]">
-                          <span className="font-display text-7xl font-bold text-primary/40">
-                            {owner.name?.[0]?.toUpperCase() || "•"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => goToSection("projects")}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
+                    >
+                      View Projects
+                    </button>
+                    <button
+                      onClick={() => goToSection("contact")}
+                      className="px-6 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
+                    >
+                      Hire Me
+                    </button>
                   </motion.div>
                 </div>
 
-                {portfolio.hero.stats?.length > 0 && (
-                  <div className="mt-16 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-                    {portfolio.hero.stats.map((s, i) => (
-                      <Reveal key={i} delay={i * 0.05}>
-                        <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
-                          {s.value}
-                        </p>
-                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
-                      </Reveal>
-                    ))}
-                  </div>
-                )}
-
-                {marqueeItems.length > 0 && (
-                  <div className="mt-14">
-                    <TechMarquee items={marqueeItems} />
-                  </div>
-                )}
-
-                {/* Services - folded into hero, no separate nav page */}
+                {/* Services — right after the intro block */}
                 {services.length > 0 && (
-                  <div className="mt-16 pt-16 border-t border-border text-left">
+                  <div className="mt-20 pt-16 border-t border-border text-left">
                     <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">What I Do</p>
                     <h2 className="font-display text-2xl md:text-3xl font-semibold mb-8 text-center">Services</h2>
                     <div className="grid sm:grid-cols-2 gap-5">
@@ -1091,7 +985,7 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 )}
 
-                {/* Why Choose Me - folded into hero, no separate nav page */}
+                {/* Why Choose Me — after Services */}
                 {whyChooseMe.length > 0 && (
                   <div className="mt-16 pt-16 border-t border-border text-left">
                     <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">The Difference</p>
@@ -1109,6 +1003,20 @@ const Portfolio = ({ slugProp }) => {
                         </Reveal>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Stats — after Why Choose Me */}
+                {portfolio.hero.stats?.length > 0 && (
+                  <div className="mt-16 pt-16 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+                    {portfolio.hero.stats.map((s, i) => (
+                      <Reveal key={i} delay={i * 0.05}>
+                        <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
+                          {s.value}
+                        </p>
+                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
+                      </Reveal>
+                    ))}
                   </div>
                 )}
               </section>

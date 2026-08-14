@@ -400,40 +400,37 @@ const SkillIcon = ({ name, className = "w-8 h-8" }) => {
   );
 };
 
-// One skill = one horizontal row card: icon, name, level badge and an
-// animated progress bar. Rows stack in a responsive multi-column list so
-// the section reads as a clean, scannable skill sheet instead of a grid
-// of icon tiles.
+// One skill = one clean row: small monogram/icon, name, and a slim solid
+// progress bar with the percentage set right next to the name. No card
+// border, no hover glow — just a hairline divider between rows so a long
+// list of skills still reads calmly, the way a spec sheet would.
 const SkillCard = ({ skill, delay = 0 }) => {
-  const meta = skillLevelMeta(skill.level ?? 0);
   return (
     <motion.div
-      initial={{ opacity: 0, x: -16 }}
-      whileInView={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
-      onMouseMove={handleCardSpotlight}
-      className="group relative flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4 overflow-hidden hover:border-primary/50 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-20px_rgba(0,0,0,0.4)] transition-all"
+      className="group flex items-center gap-4 py-4 border-b border-border/70 last:border-b-0"
     >
-      <Spotlight size={160} />
-      <span className="relative w-12 h-12 rounded-xl bg-surfaceAlt border border-border flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-primary/40 transition-all duration-300">
-        <SkillIcon name={skill.name} className="w-6 h-6" />
+      <span className="w-9 h-9 rounded-lg bg-surfaceAlt flex items-center justify-center shrink-0">
+        <SkillIcon name={skill.name} className="w-5 h-5" />
       </span>
-      <div className="relative flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="mono text-sm font-medium text-text truncate">{skill.name}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-3 mb-2">
+          <span className="text-sm font-medium text-text truncate">{skill.name}</span>
           {typeof skill.level === "number" && skill.level > 0 && (
-            <span className={`mono text-[9px] px-2 py-0.5 rounded-full shrink-0 ${meta.className}`}>{meta.label}</span>
+            <span className="mono text-xs text-textMuted shrink-0">{skill.level}%</span>
           )}
         </div>
         {typeof skill.level === "number" && skill.level > 0 && (
-          <div className="h-1.5 rounded-full bg-surfaceAlt overflow-hidden">
+          <div className="h-1 rounded-full bg-surfaceAlt overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: `${skill.level}%` }}
               viewport={{ once: true }}
-              transition={{ duration: 0.9, delay: delay + 0.15, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+              transition={{ duration: 0.8, delay: delay + 0.1, ease: "easeOut" }}
+              className="h-full bg-primary rounded-full"
             />
           </div>
         )}
@@ -867,114 +864,65 @@ const Portfolio = ({ slugProp }) => {
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
             {activeSection === "hero" && (
-              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-24 max-w-6xl mx-auto w-full">
-                <AuroraBackground />
-
-                {/* Two-column intro: text on the left, profile image on the right
-                    (stacks to a single centered column on small screens). */}
-                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-14 md:py-20 max-w-6xl mx-auto w-full">
+                {/* Two-column intro: copy on the left, portrait on the right —
+                    kept to just the essentials (eyebrow, headline, one line of
+                    support copy, two actions) so the page opens quietly instead
+                    of stacking badges, tag clouds and multiple CTAs. */}
+                <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center min-h-[70vh]">
                   <div className="text-center lg:text-left">
-                    {portfolio.hero.availableForWork && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="inline-flex items-center gap-2 mb-6 px-3.5 py-1.5 rounded-full bg-surface/80 backdrop-blur border border-border text-xs shadow-sm"
-                      >
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                        </span>
-                        Available for Freelance
-                      </motion.div>
-                    )}
-
-                    <motion.p
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.15 }}
-                      className="mono text-accent text-sm tracking-[0.25em] mb-4 uppercase"
-                    >
-                      {portfolio.hero.tagline || "Welcome to my portfolio"}
-                    </motion.p>
-
-                    <motion.h1
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.6 }}
-                      className="font-display text-4xl md:text-6xl lg:text-6xl font-bold leading-[1.05] mb-5 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-text via-text to-primary"
-                    >
-                      {portfolio.hero.title || owner.name}
-                    </motion.h1>
-
-                    <p className="mono text-lg md:text-2xl text-primary mb-6 h-8 font-medium">
-                      {displayText}
-                      <span className="animate-pulse">|</span>
-                    </p>
-
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                      className="text-textMuted text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed"
-                    >
-                      {portfolio.hero.subtitle}
-                    </motion.p>
-
-                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-7">
-                      {portfolio.hero.location && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11Z" />
-                            <circle cx="12" cy="10" r="2.5" />
-                          </svg>
-                          {portfolio.hero.location}
-                        </span>
-                      )}
-                      {portfolio.hero.yearsOfExperience > 0 && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 backdrop-blur border border-border rounded-full px-3.5 py-1.5">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 3" />
-                          </svg>
-                          {portfolio.hero.yearsOfExperience}+ Years Experience
-                        </span>
-                      )}
-                    </div>
-
-                    {highlightTeaser.length > 0 && (
-                      <ul className="mt-8 space-y-2 inline-block text-left">
-                        {highlightTeaser.map((h, i) => (
-                          <motion.li
-                            key={i}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.35 + i * 0.08 }}
-                            className="flex items-start gap-2 text-sm text-text"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 mt-0.5 text-primary shrink-0">
-                              <path d="m5 13 4 4L19 7" />
-                            </svg>
-                            {h}
-                          </motion.li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {topSkills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 justify-center lg:justify-start mt-8">
-                        {topSkills.map((s, i) => (
-                          <span
-                            key={i}
-                            className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border hover:border-primary/50 transition"
-                          >
-                            {s.name}
-                          </span>
+                    {/* Small stat pair, top-left, plain numbers instead of boxed cards */}
+                    {portfolio.hero.stats?.length > 0 && (
+                      <div className="flex items-center justify-center lg:justify-start gap-8 mb-10">
+                        {portfolio.hero.stats.slice(0, 2).map((s, i) => (
+                          <div key={i} className={i > 0 ? "pl-8 border-l border-border" : ""}>
+                            <p className="font-display text-2xl md:text-3xl font-bold text-text leading-none">{s.value}</p>
+                            <p className="text-textMuted text-xs mt-1.5">{s.label}</p>
+                          </div>
                         ))}
                       </div>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-10">
+                    <p className="mono text-accent text-sm tracking-[0.25em] mb-5 uppercase">
+                      {portfolio.hero.tagline || "Welcome to my portfolio"}
+                    </p>
+
+                    <h1 className="font-display text-5xl md:text-7xl font-bold leading-[1.02] mb-6 tracking-tight text-text">
+                      Hi, I'm {owner.name?.split(" ")[0] || owner.name}
+                      <span className="text-primary">.</span>
+                    </h1>
+
+                    <p className="mono text-lg md:text-xl text-primary mb-6 h-8 font-medium">
+                      {displayText}
+                      <span className="animate-pulse">|</span>
+                    </p>
+
+                    <p className="text-textMuted text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                      {portfolio.hero.subtitle}
+                    </p>
+
+                    {/* Plain-text meta line instead of pill badges */}
+                    {(portfolio.hero.location || portfolio.hero.yearsOfExperience > 0 || portfolio.hero.availableForWork) && (
+                      <p className="flex flex-wrap items-center justify-center lg:justify-start gap-x-2.5 gap-y-1 text-sm text-textMuted mt-5">
+                        {portfolio.hero.availableForWork && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+                            </span>
+                            Available for work
+                          </span>
+                        )}
+                        {portfolio.hero.availableForWork && (portfolio.hero.location || portfolio.hero.yearsOfExperience > 0) && (
+                          <span className="text-border">·</span>
+                        )}
+                        {portfolio.hero.location && <span>{portfolio.hero.location}</span>}
+                        {portfolio.hero.location && portfolio.hero.yearsOfExperience > 0 && <span className="text-border">·</span>}
+                        {portfolio.hero.yearsOfExperience > 0 && <span>{portfolio.hero.yearsOfExperience}+ years experience</span>}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-9">
                       <button
                         onClick={() => goToSection("projects")}
                         className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
@@ -987,23 +935,10 @@ const Portfolio = ({ slugProp }) => {
                       >
                         Hire Me
                       </button>
-                      {portfolio.hero.resumeLink && (
-                        <a
-                          href={portfolio.hero.resumeLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-7 py-3 rounded-xl text-primary hover:underline transition font-medium"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-                            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
-                          </svg>
-                          Download Resume
-                        </a>
-                      )}
                     </div>
 
                     {Object.values(portfolio.contact.socialLinks || {}).some(Boolean) && (
-                      <div className="flex items-center justify-center lg:justify-start gap-3 mt-9">
+                      <div className="flex items-center justify-center lg:justify-start gap-3 mt-8">
                         {Object.entries(portfolio.contact.socialLinks || {}).map(
                           ([key, val]) =>
                             val && (
@@ -1022,24 +957,24 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
 
-                  {/* Right side — developer/user profile image. Falls back to a
-                      soft gradient monogram tile when no image has been added yet. */}
+                  {/* Right side — a single quiet portrait frame, one soft glow
+                      behind it instead of layered blobs/backdrops. */}
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.94 }}
+                    initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ delay: 0.15, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                     className="relative flex justify-center lg:justify-end"
                   >
-                    <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96">
-                      <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/20 to-accent/20 blur-2xl -z-10" />
+                    <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-[26rem] md:h-[26rem]">
+                      <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-br from-primary/15 to-accent/15 blur-3xl -z-10" />
                       {portfolio.hero.profileImage ? (
                         <img
                           src={portfolio.hero.profileImage}
                           alt={owner.name}
-                          className="w-full h-full object-cover rounded-[1.75rem] border border-border shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)]"
+                          className="w-full h-full object-cover rounded-[1.75rem] border border-border"
                         />
                       ) : (
-                        <div className="w-full h-full rounded-[1.75rem] border border-border bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.35)]">
+                        <div className="w-full h-full rounded-[1.75rem] border border-border bg-surface flex items-center justify-center">
                           <span className="font-display text-7xl font-bold text-primary/40">
                             {owner.name?.[0]?.toUpperCase() || "•"}
                           </span>
@@ -1049,26 +984,24 @@ const Portfolio = ({ slugProp }) => {
                   </motion.div>
                 </div>
 
-                {portfolio.hero.stats?.length > 0 && (
-                  <div className="mt-16 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-                    {portfolio.hero.stats.map((s, i) => (
-                      <Reveal key={i} delay={i * 0.05}>
-                        <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
-                          {s.value}
-                        </p>
-                        <p className="text-textMuted text-xs mono mt-1 uppercase tracking-wide">{s.label}</p>
-                      </Reveal>
-                    ))}
-                  </div>
-                )}
+                {/* Quiet scroll cue instead of a heavy divider */}
+                <button
+                  onClick={() => goToSection("about")}
+                  className="hidden lg:flex items-center gap-2 mono text-xs text-textMuted hover:text-primary transition mt-4"
+                >
+                  Scroll to explore
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                    <path d="M12 5v14M5 12l7 7 7-7" />
+                  </svg>
+                </button>
 
                 {marqueeItems.length > 0 && (
-                  <div className="mt-14">
+                  <div className="mt-16">
                     <TechMarquee items={marqueeItems} />
                   </div>
                 )}
 
-                {/* Services - folded into hero, no separate nav page */}
+                {/* Services */}
                 {services.length > 0 && (
                   <div className="mt-16 pt-16 border-t border-border text-left">
                     <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">What I Do</p>
@@ -1078,11 +1011,8 @@ const Portfolio = ({ slugProp }) => {
                         <Reveal
                           key={i}
                           delay={i * 0.05}
-                          className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/50 hover:-translate-y-1 transition-all"
+                          className="bg-surface border border-border rounded-2xl p-6 hover:border-primary/50 transition-colors"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 text-primary flex items-center justify-center font-display font-semibold mb-4">
-                            {String(i + 1).padStart(2, "0")}
-                          </div>
                           <h3 className="font-display font-semibold mb-2">{s.title}</h3>
                           <p className="text-textMuted text-sm leading-relaxed">{s.description}</p>
                         </Reveal>
@@ -1091,7 +1021,7 @@ const Portfolio = ({ slugProp }) => {
                   </div>
                 )}
 
-                {/* Why Choose Me - folded into hero, no separate nav page */}
+                {/* Why Choose Me */}
                 {whyChooseMe.length > 0 && (
                   <div className="mt-16 pt-16 border-t border-border text-left">
                     <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">The Difference</p>
@@ -1257,9 +1187,7 @@ const Portfolio = ({ slugProp }) => {
             )}
 
             {activeSection === "skills" && (
-              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
-                <AuroraBackground />
-
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full">
                 <Reveal className="max-w-2xl">
                   <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
                     <span className="w-6 h-px bg-primary" /> What I Work With
@@ -1274,34 +1202,33 @@ const Portfolio = ({ slugProp }) => {
 
                 {portfolio.skills.length > 0 && (
                   <>
-                    {/* Category filter pills — only shown when skills span more than one category */}
+                    {/* Category filter — quiet underline tabs instead of filled pills */}
                     {Object.keys(skillGroups).length > 1 && (
-                      <div className="flex flex-wrap gap-2 mt-8">
+                      <div className="flex flex-wrap gap-6 mt-10 border-b border-border">
                         {["All", ...Object.keys(skillGroups)].map((cat) => (
                           <button
                             key={cat}
                             onClick={() => setSkillFilter(cat)}
-                            className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
-                              skillFilter === cat
-                                ? "text-white border-transparent"
-                                : "border-border text-textMuted hover:border-primary/50 hover:text-text"
+                            className={`relative pb-3 mono text-xs uppercase tracking-wide transition ${
+                              skillFilter === cat ? "text-primary" : "text-textMuted hover:text-text"
                             }`}
                           >
+                            {cat}
                             {skillFilter === cat && (
                               <motion.span
-                                layoutId="skill-filter-pill"
-                                className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                                layoutId="skill-filter-underline"
+                                className="absolute left-0 right-0 -bottom-px h-[2px] bg-primary"
                                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
                               />
                             )}
-                            {cat}
                           </button>
                         ))}
                       </div>
                     )}
 
-                    {/* Skill rows — icon, name, level badge and progress bar, stacked
-                        in a responsive multi-column list. */}
+                    {/* Clean skill sheet — a single flat list split into up to two
+                        columns, each skill a row with icon, name, % and a slim
+                        solid progress bar, separated only by hairline dividers. */}
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={skillFilter}
@@ -1309,10 +1236,10 @@ const Portfolio = ({ slugProp }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-10"
+                        className="grid sm:grid-cols-2 gap-x-10 mt-4 max-w-4xl"
                       >
                         {visibleSkills.map((s, i) => (
-                          <SkillCard key={s.name + i} skill={s} delay={Math.min(i * 0.04, 0.4)} />
+                          <SkillCard key={s.name + i} skill={s} delay={Math.min(i * 0.03, 0.3)} />
                         ))}
                       </motion.div>
                     </AnimatePresence>

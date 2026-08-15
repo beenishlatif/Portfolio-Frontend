@@ -958,27 +958,13 @@ const Portfolio = ({ slugProp }) => {
                   </div>
 
                   {/* Right — full-bleed image, no card / circle / shadow wrapper */}
-                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto overflow-hidden">
+                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto overflow-hidden bg-bg">
                     {portfolio.hero.profileImage ? (
-                      <>
-                        <img
-                          src={portfolio.hero.profileImage}
-                          alt={owner.name}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          style={{
-                            WebkitMaskImage:
-                              "linear-gradient(to right, transparent, black 12%), linear-gradient(to bottom, black 78%, transparent)",
-                            WebkitMaskComposite: "source-in",
-                            maskImage:
-                              "linear-gradient(to right, transparent, black 12%), linear-gradient(to bottom, black 78%, transparent)",
-                            maskComposite: "intersect",
-                          }}
-                        />
-                        {/* Soft fades so the photo's own background eases into the
-                            page background instead of ending in a hard edge. */}
-                        <div className="hidden lg:block pointer-events-none absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-bg to-transparent" />
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg to-transparent" />
-                      </>
+                      <img
+                        src={portfolio.hero.profileImage}
+                        alt={owner.name}
+                        className="absolute inset-0 w-full h-full object-cover mix-blend-multiply"
+                      />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
                         <span className="font-display text-8xl font-bold text-primary/40">
@@ -1047,11 +1033,6 @@ const Portfolio = ({ slugProp }) => {
                     </div>
                   )}
 
-                  {marqueeItems.length > 0 && (
-                    <div className="mt-16 mb-4">
-                      <TechMarquee items={marqueeItems} />
-                    </div>
-                  )}
                 </div>
               </section>
             )}

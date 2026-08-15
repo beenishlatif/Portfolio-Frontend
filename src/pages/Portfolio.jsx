@@ -890,61 +890,27 @@ const Portfolio = ({ slugProp }) => {
                     the grid row instead of being stretched/centered by the grid. */}
                 <div className="grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:min-h-[86vh]">
                   <div className="order-2 lg:order-1 min-w-0 flex flex-col justify-center px-6 md:px-10 lg:pl-16 lg:pr-10 py-14 md:py-20">
-                    <motion.p
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="font-display text-xl md:text-2xl font-semibold text-textMuted mb-3"
-                    >
-                      Hello!
-                    </motion.p>
-
-                    {/* Restructured: the location / experience / availability badges now
-                        sit right under the "Hello!" line as a quick-glance strip, instead
-                        of being stacked below the CTA buttons — keeps the buttons as the
-                        clear final action of the block. */}
-                    {(portfolio.hero.location || portfolio.hero.yearsOfExperience > 0 || portfolio.hero.availableForWork) && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.14 }}
-                        className="flex flex-wrap items-center gap-2.5 mb-5"
-                      >
-                        {portfolio.hero.availableForWork && (
-                          <span className="inline-flex items-center gap-2 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                            </span>
-                            Available for Freelance
-                          </span>
-                        )}
-                        {portfolio.hero.location && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {portfolio.hero.location}
-                          </span>
-                        )}
-                        {portfolio.hero.yearsOfExperience > 0 && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M12 7v5l3 3" />
-                            </svg>
-                            {portfolio.hero.yearsOfExperience}+ Years Experience
-                          </span>
-                        )}
-                      </motion.div>
-                    )}
-
+                    {/* Redesigned heading — "Hi, I'm" as a small eyebrow line above a
+                        large gradient name, instead of one long nowrap "I Am {name}"
+                        string that looked cramped/odd, especially on smaller screens
+                        or with longer names. This also removes the forced nowrap on
+                        the name itself, so long names simply stay on their own line
+                        at a comfortable size instead of being squeezed. */}
                     <motion.h1
                       initial={{ opacity: 0, y: 18 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.18, duration: 0.6 }}
-                      className="font-display font-bold leading-[1.12] mb-4 tracking-tight whitespace-nowrap"
-                      style={{ fontSize: "clamp(1.5rem, 4.2vw, 3.5rem)" }}
+                      transition={{ delay: 0.12, duration: 0.6 }}
+                      className="font-display font-bold leading-[1.08] mb-4 tracking-tight"
                     >
-                      I Am {owner.name}
+                      <span className="block text-textMuted font-medium mb-1.5" style={{ fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>
+                        Hi, I'm
+                      </span>
+                      <span
+                        className="block bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent"
+                        style={{ fontSize: "clamp(2rem, 5.2vw, 3.75rem)" }}
+                      >
+                        {owner.name}
+                      </span>
                     </motion.h1>
 
                     {/* The rotating-role line is wrapped in its own fixed-width box
@@ -977,7 +943,37 @@ const Portfolio = ({ slugProp }) => {
                       {portfolio.hero.subtitle}
                     </motion.p>
 
-                    <div className="flex flex-wrap items-center gap-3 mt-8">
+                    {/* Location / experience quick-glance badges — moved to sit
+                        right above the CTA buttons (the "Available for Freelance"
+                        badge has been dropped) so the two live pieces of context
+                        lead straight into the call to action instead of floating
+                        elsewhere on the page. */}
+                    {(portfolio.hero.location || portfolio.hero.yearsOfExperience > 0) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.38 }}
+                        className="flex flex-wrap items-center gap-2.5 mt-6"
+                      >
+                        {portfolio.hero.location && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {portfolio.hero.location}
+                          </span>
+                        )}
+                        {portfolio.hero.yearsOfExperience > 0 && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                              <circle cx="12" cy="12" r="9" />
+                              <path d="M12 7v5l3 3" />
+                            </svg>
+                            {portfolio.hero.yearsOfExperience}+ Years Experience
+                          </span>
+                        )}
+                      </motion.div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3 mt-5">
                       <button
                         onClick={() => goToSection("projects")}
                         className="px-7 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"

@@ -871,7 +871,13 @@ const Portfolio = ({ slugProp }) => {
                 {/* Two-column intro: text on the left, full-bleed profile image on
                     the right — no card/circle/rounded wrapper around the image, it
                     simply fills the column edge-to-edge like a real photo backdrop.
-                    Stacks with the image on top on small screens. */}
+                    Stacks with the image on top on small screens.
+                    NOTE: the right column uses a fixed viewport-based height
+                    (lg:h-[86vh]) instead of lg:h-auto so that it never shrinks or
+                    grows when the left column's content changes height (e.g. the
+                    typewriter effect below typing/deleting different-length
+                    role strings). lg:self-start keeps it pinned to the top of the
+                    grid row instead of being stretched/centered by the grid. */}
                 <div className="grid lg:grid-cols-[1.08fr_0.92fr] lg:min-h-[86vh]">
                   <div className="order-2 lg:order-1 flex flex-col justify-center px-6 md:px-10 lg:pl-16 lg:pr-10 py-14 md:py-20">
                     <motion.p
@@ -957,8 +963,11 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
 
-                  {/* Right — full-bleed image, no card / circle / shadow wrapper */}
-                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto flex flex-col bg-bg">
+                  {/* Right — full-bleed image, no card / circle / shadow wrapper.
+                      Fixed height (86vh) + self-start keeps this column's size
+                      completely independent of the left column's content, so
+                      typing/deleting the rotating role text can never resize it. */}
+                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-[86vh] flex flex-col bg-bg lg:self-start">
                     <div className="shrink-0 h-6 md:h-10 lg:h-14" />
                     <div className="relative flex-1 overflow-hidden">
                       {portfolio.hero.profileImage ? (

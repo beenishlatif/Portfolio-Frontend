@@ -872,22 +872,70 @@ const Portfolio = ({ slugProp }) => {
                     the right — no card/circle/rounded wrapper around the image, it
                     simply fills the column edge-to-edge like a real photo backdrop.
                     Stacks with the image on top on small screens.
-                    NOTE: the right column uses a fixed viewport-based height
-                    (lg:h-[86vh]) instead of lg:h-auto so that it never shrinks or
-                    grows when the left column's content changes height (e.g. the
-                    typewriter effect below typing/deleting different-length
-                    role strings). lg:self-start keeps it pinned to the top of the
-                    grid row instead of being stretched/centered by the grid. */}
-                <div className="grid lg:grid-cols-[1.08fr_0.92fr] lg:min-h-[86vh]">
-                  <div className="order-2 lg:order-1 flex flex-col justify-center px-6 md:px-10 lg:pl-16 lg:pr-10 py-14 md:py-20">
+
+                    FIX: the grid track sizes are wrapped in minmax(0, …) instead of
+                    plain fr units, and both columns get min-w-0. Without this, the
+                    browser sizes each fr track using the content's natural
+                    (min-content) width — so every time the typewriter effect below
+                    typed/deleted a shorter or longer role string, the left column's
+                    intrinsic width shifted and the right column (and therefore the
+                    image) visibly moved/resized along with it. minmax(0, …) forces
+                    the tracks to only ever follow the 1.08fr / 0.92fr ratio, so the
+                    image column stays completely still regardless of what the text
+                    is doing.
+
+                    NOTE: the right column still uses a fixed viewport-based height
+                    (lg:h-[86vh]) instead of lg:h-auto so it never shrinks or grows
+                    vertically either. lg:self-start keeps it pinned to the top of
+                    the grid row instead of being stretched/centered by the grid. */}
+                <div className="grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:min-h-[86vh]">
+                  <div className="order-2 lg:order-1 min-w-0 flex flex-col justify-center px-6 md:px-10 lg:pl-16 lg:pr-10 py-14 md:py-20">
                     <motion.p
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
-                      className="font-display text-xl md:text-2xl font-semibold text-textMuted mb-2"
+                      className="font-display text-xl md:text-2xl font-semibold text-textMuted mb-3"
                     >
                       Hello!
                     </motion.p>
+
+                    {/* Restructured: the location / experience / availability badges now
+                        sit right under the "Hello!" line as a quick-glance strip, instead
+                        of being stacked below the CTA buttons — keeps the buttons as the
+                        clear final action of the block. */}
+                    {(portfolio.hero.location || portfolio.hero.yearsOfExperience > 0 || portfolio.hero.availableForWork) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.14 }}
+                        className="flex flex-wrap items-center gap-2.5 mb-5"
+                      >
+                        {portfolio.hero.availableForWork && (
+                          <span className="inline-flex items-center gap-2 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                            </span>
+                            Available for Freelance
+                          </span>
+                        )}
+                        {portfolio.hero.location && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {portfolio.hero.location}
+                          </span>
+                        )}
+                        {portfolio.hero.yearsOfExperience > 0 && (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                              <circle cx="12" cy="12" r="9" />
+                              <path d="M12 7v5l3 3" />
+                            </svg>
+                            {portfolio.hero.yearsOfExperience}+ Years Experience
+                          </span>
+                        )}
+                      </motion.div>
+                    )}
 
                     <motion.h1
                       initial={{ opacity: 0, y: 18 }}
@@ -899,14 +947,21 @@ const Portfolio = ({ slugProp }) => {
                       I Am {owner.name}
                     </motion.h1>
 
+                    {/* The rotating-role line is now wrapped in its own fixed-width,
+                        overflow-hidden box (max-w-md, matching the subtitle below) so
+                        its unwrapped text can never influence the surrounding layout —
+                        it just clips inside its own box while the rest of the page
+                        (including the image column) stays perfectly put. */}
                     {(portfolio.hero.roles?.length > 0 || portfolio.hero.title) && (
-                      <p
-                        className="mono text-primary mb-5 h-8 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
-                        style={{ fontSize: "clamp(0.9rem, 2vw, 1.25rem)" }}
-                      >
-                        {displayText}
-                        <span className="animate-pulse">|</span>
-                      </p>
+                      <div className="w-full max-w-md overflow-hidden mb-5">
+                        <p
+                          className="mono text-primary h-8 font-medium whitespace-nowrap"
+                          style={{ fontSize: "clamp(0.9rem, 2vw, 1.25rem)" }}
+                        >
+                          {displayText}
+                          <span className="animate-pulse">|</span>
+                        </p>
+                      </div>
                     )}
 
                     <motion.p
@@ -932,42 +987,13 @@ const Portfolio = ({ slugProp }) => {
                         Hire Me
                       </button>
                     </div>
-
-                    {(portfolio.hero.location || portfolio.hero.yearsOfExperience > 0 || portfolio.hero.availableForWork) && (
-                      <div className="flex flex-wrap items-center gap-3 mt-6">
-                        {portfolio.hero.availableForWork && (
-                          <span className="inline-flex items-center gap-2 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                            </span>
-                            Available for Freelance
-                          </span>
-                        )}
-                        {portfolio.hero.location && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {portfolio.hero.location}
-                          </span>
-                        )}
-                        {portfolio.hero.yearsOfExperience > 0 && (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-textMuted bg-surface/80 border border-border rounded-full px-3.5 py-1.5">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M12 7v5l3 3" />
-                            </svg>
-                            {portfolio.hero.yearsOfExperience}+ Years Experience
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   {/* Right — full-bleed image, no card / circle / shadow wrapper.
-                      Fixed height (86vh) + self-start keeps this column's size
-                      completely independent of the left column's content, so
-                      typing/deleting the rotating role text can never resize it. */}
-                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-[86vh] flex flex-col bg-bg lg:self-start">
+                      min-w-0 (paired with minmax(0, …) on the grid track above)
+                      pins this column to its intended share of the row no matter
+                      what the left column's text is doing. */}
+                  <div className="order-1 lg:order-2 relative w-full min-w-0 h-64 sm:h-80 lg:h-[86vh] flex flex-col bg-bg lg:self-start">
                     <div className="shrink-0 h-6 md:h-10 lg:h-14" />
                     <div className="relative flex-1 overflow-hidden">
                       {portfolio.hero.profileImage ? (

@@ -872,7 +872,7 @@ const Portfolio = ({ slugProp }) => {
                     the right — no card/circle/rounded wrapper around the image, it
                     simply fills the column edge-to-edge like a real photo backdrop.
                     Stacks with the image on top on small screens. */}
-                <div className="grid lg:grid-cols-2 lg:min-h-[86vh]">
+                <div className="grid lg:grid-cols-[1.08fr_0.92fr] lg:min-h-[86vh]">
                   <div className="order-2 lg:order-1 flex flex-col justify-center px-6 md:px-10 lg:pl-16 lg:pr-10 py-14 md:py-20">
                     <motion.p
                       initial={{ opacity: 0, y: 10 }}
@@ -965,7 +965,7 @@ const Portfolio = ({ slugProp }) => {
                         <img
                           src={portfolio.hero.profileImage}
                           alt={owner.name}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-contain object-bottom"
                         />
                       ) : (
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
@@ -1024,7 +1024,7 @@ const Portfolio = ({ slugProp }) => {
                   )}
 
                   {portfolio.hero.stats?.length > 0 && (
-                    <div className="mt-16 pt-12 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+                    <div className="mt-16 pt-16 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
                       {portfolio.hero.stats.map((s, i) => (
                         <Reveal key={i} delay={i * 0.05}>
                           <p className="font-display text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary to-accent">
@@ -1035,8 +1035,9 @@ const Portfolio = ({ slugProp }) => {
                       ))}
                     </div>
                   )}
-
                 </div>
+
+                <div className="h-16 md:h-20" />
               </section>
             )}
 

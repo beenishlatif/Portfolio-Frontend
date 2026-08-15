@@ -958,20 +958,23 @@ const Portfolio = ({ slugProp }) => {
                   </div>
 
                   {/* Right — full-bleed image, no card / circle / shadow wrapper */}
-                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto overflow-hidden bg-bg">
-                    {portfolio.hero.profileImage ? (
-                      <img
-                        src={portfolio.hero.profileImage}
-                        alt={owner.name}
-                        className="absolute inset-0 w-full h-full object-cover mix-blend-multiply"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
-                        <span className="font-display text-8xl font-bold text-primary/40">
-                          {owner.name?.[0]?.toUpperCase() || "•"}
-                        </span>
-                      </div>
-                    )}
+                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto flex flex-col bg-bg">
+                    <div className="shrink-0 h-6 md:h-10 lg:h-14" />
+                    <div className="relative flex-1 overflow-hidden">
+                      {portfolio.hero.profileImage ? (
+                        <img
+                          src={portfolio.hero.profileImage}
+                          alt={owner.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
+                          <span className="font-display text-8xl font-bold text-primary/40">
+                            {owner.name?.[0]?.toUpperCase() || "•"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -1244,14 +1244,11 @@ const Portfolio = ({ slugProp }) => {
               <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
                 <AuroraBackground />
 
-                {/* "What I Do" header block — big centered heading + a short centered
-                    bio/summary line underneath, matching a clean icon-grid skills
-                    layout (heading up top, intro line, then the logo grid below). */}
+                {/* "What I Do" header block — big centered heading, no supporting
+                    paragraph underneath (removed per request) so it's just a clean
+                    heading leading straight into the icon grid. */}
                 <Reveal className="max-w-2xl mx-auto text-center">
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">What I Do</h2>
-                  <p className="text-textMuted text-sm md:text-base leading-relaxed">
-                    {portfolio.about?.bio || portfolio.hero.subtitle}
-                  </p>
+                  <h2 className="font-display text-3xl md:text-4xl font-bold">What I Do</h2>
                 </Reveal>
 
                 {portfolio.skills.length === 0 && (

@@ -360,7 +360,14 @@ const AdminDashboard = () => {
     setMessage("");
     try {
       // removeBackground accepts a URL directly - no need to fetch it ourselves.
-      const blob = await removeBackground(form.hero.profileImage);
+      // device: "cpu" forces the single-threaded WASM backend instead of the
+      // multi-threaded/WebGPU one, which needs special Cross-Origin-Opener-Policy /
+      // Cross-Origin-Embedder-Policy response headers that Vercel doesn't set by
+      // default. Single-threaded is a bit slower but works everywhere with no
+      // extra server config.
+      const blob = await removeBackground(form.hero.profileImage, {
+        device: "cpu",
+      });
       const processedFile = new File([blob], "profile-nobg.png", { type: "image/png" });
       const url = await uploadFile(processedFile);
       updateField("hero", "profileImage", url);

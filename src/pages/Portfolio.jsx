@@ -887,13 +887,17 @@ const Portfolio = ({ slugProp }) => {
                       initial={{ opacity: 0, y: 18 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.18, duration: 0.6 }}
-                      className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.08] mb-4 tracking-tight"
+                      className="font-display font-bold leading-[1.12] mb-4 tracking-tight whitespace-nowrap"
+                      style={{ fontSize: "clamp(1.5rem, 4.2vw, 3.5rem)" }}
                     >
                       I Am {owner.name}
                     </motion.h1>
 
                     {(portfolio.hero.roles?.length > 0 || portfolio.hero.title) && (
-                      <p className="mono text-lg md:text-xl text-primary mb-5 h-8 font-medium">
+                      <p
+                        className="mono text-primary mb-5 h-8 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+                        style={{ fontSize: "clamp(0.9rem, 2vw, 1.25rem)" }}
+                      >
                         {displayText}
                         <span className="animate-pulse">|</span>
                       </p>
@@ -954,13 +958,27 @@ const Portfolio = ({ slugProp }) => {
                   </div>
 
                   {/* Right — full-bleed image, no card / circle / shadow wrapper */}
-                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto">
+                  <div className="order-1 lg:order-2 relative w-full h-64 sm:h-80 lg:h-auto overflow-hidden">
                     {portfolio.hero.profileImage ? (
-                      <img
-                        src={portfolio.hero.profileImage}
-                        alt={owner.name}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={portfolio.hero.profileImage}
+                          alt={owner.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          style={{
+                            WebkitMaskImage:
+                              "linear-gradient(to right, transparent, black 12%), linear-gradient(to bottom, black 78%, transparent)",
+                            WebkitMaskComposite: "source-in",
+                            maskImage:
+                              "linear-gradient(to right, transparent, black 12%), linear-gradient(to bottom, black 78%, transparent)",
+                            maskComposite: "intersect",
+                          }}
+                        />
+                        {/* Soft fades so the photo's own background eases into the
+                            page background instead of ending in a hard edge. */}
+                        <div className="hidden lg:block pointer-events-none absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-bg to-transparent" />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg to-transparent" />
+                      </>
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
                         <span className="font-display text-8xl font-bold text-primary/40">
@@ -974,24 +992,6 @@ const Portfolio = ({ slugProp }) => {
                 {/* Everything below the fold stays inside the standard container
                     so it lines up with the rest of the site. */}
                 <div className="max-w-6xl mx-auto px-6 md:px-10">
-                  {topSkills.length > 0 && (
-                    <div className="mt-16 pt-12 border-t border-border">
-                      <p className="mono text-xs text-primary uppercase tracking-widest mb-6 text-center">What I Work With</p>
-                      <div className="flex flex-wrap items-center justify-center gap-3">
-                        {topSkills.map((s, i) => (
-                          <Reveal
-                            key={i}
-                            delay={i * 0.05}
-                            className="flex items-center gap-2 bg-surface border border-border rounded-full pl-2 pr-4 py-2"
-                          >
-                            <SkillIcon name={s.name} className="w-5 h-5" />
-                            <span className="mono text-sm text-text">{s.name}</span>
-                          </Reveal>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {services.length > 0 && (
                     <div className="mt-16 pt-16 border-t border-border text-left">
                       <p className="mono text-xs text-primary uppercase tracking-widest mb-2 text-center">What I Do</p>

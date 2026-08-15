@@ -441,6 +441,28 @@ const SkillCard = ({ skill, delay = 0 }) => {
     </motion.div>
   );
 };
+
+// Icon-tile card used by the "What I Do" skills grid — dark square card,
+// brand icon centered on top, label centered underneath. No level bar/badge:
+// this variant is purely icon + name, matching a clean logo-grid layout.
+const SkillIconCard = ({ skill, delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 18 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, amount: 0.3 }}
+    transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
+    onMouseMove={handleCardSpotlight}
+    className="group relative flex flex-col items-center justify-center gap-3.5 bg-surface border border-border rounded-2xl py-7 px-4 overflow-hidden hover:border-primary/50 hover:-translate-y-1 transition-all"
+  >
+    <Spotlight size={160} />
+    <span className="relative flex items-center justify-center w-11 h-11 group-hover:scale-110 transition-transform duration-300">
+      <SkillIcon name={skill.name} className="w-11 h-11" />
+    </span>
+    <span className="relative mono text-[11px] md:text-xs text-textMuted uppercase tracking-wide text-center leading-tight">
+      {skill.name}
+    </span>
+  </motion.div>
+);
 // ------------------------------------------------------------------------
 
 const isVideoFile = (url = "") => /^data:video\//i.test(url) || /\.(mp4|webm|mov)(\?.*)?$/i.test(url);

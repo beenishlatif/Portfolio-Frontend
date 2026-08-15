@@ -948,17 +948,19 @@ const Portfolio = ({ slugProp }) => {
                     </motion.h1>
 
                     {/* The rotating-role line is wrapped in its own fixed-width box
-                        (max-w-md, matching the subtitle below) and now wraps to a
-                        second line instead of clipping, so long role names stay fully
-                        visible. Its width is capped by max-w-md rather than by growing
-                        with the text, so it can never influence the grid's column
-                        sizing — the rest of the page (including the image column)
-                        stays perfectly put no matter how many lines this takes. */}
+                        (max-w-md, matching the subtitle below). Font size is smaller
+                        and scales down further on narrow screens (clamp), and the
+                        line stays single-line (whitespace-nowrap) with ellipsis as a
+                        safety net — so it fits on one line instead of wrapping messily.
+                        Its width is capped by max-w-md rather than by growing with the
+                        text, so it can never influence the grid's column sizing — the
+                        rest of the page (including the image column) stays perfectly
+                        put regardless of what this text is doing. */}
                     {(portfolio.hero.roles?.length > 0 || portfolio.hero.title) && (
-                      <div className="w-full max-w-md mb-5">
+                      <div className="w-full max-w-md overflow-hidden mb-5">
                         <p
-                          className="mono text-primary min-h-8 font-medium whitespace-normal break-words leading-snug"
-                          style={{ fontSize: "clamp(0.9rem, 2vw, 1.25rem)" }}
+                          className="mono text-primary h-7 font-medium whitespace-nowrap text-ellipsis overflow-hidden"
+                          style={{ fontSize: "clamp(0.75rem, 1.6vw, 1.05rem)" }}
                         >
                           {displayText}
                           <span className="animate-pulse">|</span>

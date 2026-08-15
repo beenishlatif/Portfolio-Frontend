@@ -947,15 +947,17 @@ const Portfolio = ({ slugProp }) => {
                       I Am {owner.name}
                     </motion.h1>
 
-                    {/* The rotating-role line is now wrapped in its own fixed-width,
-                        overflow-hidden box (max-w-md, matching the subtitle below) so
-                        its unwrapped text can never influence the surrounding layout —
-                        it just clips inside its own box while the rest of the page
-                        (including the image column) stays perfectly put. */}
+                    {/* The rotating-role line is wrapped in its own fixed-width box
+                        (max-w-md, matching the subtitle below) and now wraps to a
+                        second line instead of clipping, so long role names stay fully
+                        visible. Its width is capped by max-w-md rather than by growing
+                        with the text, so it can never influence the grid's column
+                        sizing — the rest of the page (including the image column)
+                        stays perfectly put no matter how many lines this takes. */}
                     {(portfolio.hero.roles?.length > 0 || portfolio.hero.title) && (
-                      <div className="w-full max-w-md overflow-hidden mb-5">
+                      <div className="w-full max-w-md mb-5">
                         <p
-                          className="mono text-primary h-8 font-medium whitespace-nowrap"
+                          className="mono text-primary min-h-8 font-medium whitespace-normal break-words leading-snug"
                           style={{ fontSize: "clamp(0.9rem, 2vw, 1.25rem)" }}
                         >
                           {displayText}

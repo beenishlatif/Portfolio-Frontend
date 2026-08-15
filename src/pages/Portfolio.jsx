@@ -1244,63 +1244,89 @@ const Portfolio = ({ slugProp }) => {
               <section className="relative scroll-mt-24 px-6 md:px-10 py-20 md:py-28 max-w-6xl mx-auto w-full overflow-hidden">
                 <AuroraBackground />
 
-                <Reveal className="max-w-2xl">
-                  <p className="mono text-xs text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <span className="w-6 h-px bg-primary" /> What I Work With
-                  </p>
-                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">Skills</h2>
-                  <p className="text-textMuted text-sm md:text-base">
-                    Tools and technologies I use to design, build and ship real products.
+                {/* "What I Do" header block — big centered heading + a short centered
+                    bio/summary line underneath, matching a clean icon-grid skills
+                    layout (heading up top, intro line, then the logo grid below). */}
+                <Reveal className="max-w-2xl mx-auto text-center">
+                  <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">What I Do</h2>
+                  <p className="text-textMuted text-sm md:text-base leading-relaxed">
+                    {portfolio.about?.bio || portfolio.hero.subtitle}
                   </p>
                 </Reveal>
 
-                {portfolio.skills.length === 0 && <p className="text-textMuted mt-10">No skills added yet.</p>}
+                {portfolio.skills.length === 0 && (
+                  <p className="text-textMuted mt-10 text-center">No skills added yet.</p>
+                )}
 
                 {portfolio.skills.length > 0 && (
-                  <>
-                    {/* Category filter pills — only shown when skills span more than one category */}
-                    {Object.keys(skillGroups).length > 1 && (
-                      <div className="flex flex-wrap gap-2 mt-8">
-                        {["All", ...Object.keys(skillGroups)].map((cat) => (
-                          <button
-                            key={cat}
-                            onClick={() => setSkillFilter(cat)}
-                            className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
-                              skillFilter === cat
-                                ? "text-white border-transparent"
-                                : "border-border text-textMuted hover:border-primary/50 hover:text-text"
-                            }`}
-                          >
-                            {skillFilter === cat && (
-                              <motion.span
-                                layoutId="skill-filter-pill"
-                                className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
-                                transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                              />
-                            )}
-                            {cat}
-                          </button>
-                        ))}
+                  <div className="relative flex items-stretch gap-6 mt-14">
+                    {/* Vertical "Skills" side label with a small dot-motif accent,
+                        sitting to the left of the icon grid like a section tab. */}
+                    <div className="hidden md:flex flex-col items-center justify-between shrink-0 py-2">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-primary/60" />
+                        <span className="w-1 h-1 rounded-full bg-primary/40" />
+                        <span className="w-1 h-1 rounded-full bg-primary/20" />
                       </div>
-                    )}
-
-                    {/* Skill rows — icon, name, level badge and progress bar, stacked
-                        in a responsive multi-column list. */}
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={skillFilter}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-10"
+                      <span
+                        className="mono text-xs font-semibold text-textMuted tracking-[0.3em] uppercase"
+                        style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                       >
-                        {visibleSkills.map((s, i) => (
-                          <SkillCard key={s.name + i} skill={s} delay={Math.min(i * 0.04, 0.4)} />
-                        ))}
-                      </motion.div>
-                    </AnimatePresence>
-                  </>
+                        Skills
+                      </span>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-primary/20" />
+                        <span className="w-1 h-1 rounded-full bg-primary/40" />
+                        <span className="w-1 h-1 rounded-full bg-primary/60" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      {/* Category filter pills — only shown when skills span more than one category */}
+                      {Object.keys(skillGroups).length > 1 && (
+                        <div className="flex flex-wrap justify-center gap-2 mb-8">
+                          {["All", ...Object.keys(skillGroups)].map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => setSkillFilter(cat)}
+                              className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
+                                skillFilter === cat
+                                  ? "text-white border-transparent"
+                                  : "border-border text-textMuted hover:border-primary/50 hover:text-text"
+                              }`}
+                            >
+                              {skillFilter === cat && (
+                                <motion.span
+                                  layoutId="skill-filter-pill"
+                                  className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
+                                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                                />
+                              )}
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Icon grid — dark rounded tile per skill, brand icon on top,
+                          name centered underneath. 5 columns on desktop like a tidy
+                          logo wall, tightening down to 2 on small screens. */}
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={skillFilter}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5"
+                        >
+                          {visibleSkills.map((s, i) => (
+                            <SkillIconCard key={s.name + i} skill={s} delay={Math.min(i * 0.04, 0.4)} />
+                          ))}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                  </div>
                 )}
               </section>
             )}

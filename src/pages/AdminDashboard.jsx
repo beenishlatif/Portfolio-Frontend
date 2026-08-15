@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme, THEMES } from "../context/ThemeContext.jsx";
-import { Image as ImageIcon, Video as VideoIcon, X, PlayCircle } from "lucide-react";
+import { removeBackground } from "@imgly/background-removal";
+import { Image as ImageIcon, Video as VideoIcon, X, PlayCircle, Wand2 } from "lucide-react";
 
 const TABS = [
   { id: "hero", label: "Hero" },
@@ -112,6 +113,9 @@ const AdminDashboard = () => {
 
   // --- Upload state for the hero profile image gallery picker ---
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+
+  // --- Background removal state for the hero profile image ---
+  const [removingBgProfileImage, setRemovingBgProfileImage] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -344,6 +348,31 @@ const AdminDashboard = () => {
     updateField("hero", "profileImage", "");
   };
 
+  // --- Client-side background removal for the hero profile image ---
+  // Runs entirely in the browser (WASM/ONNX model via @imgly/background-removal),
+  // so there's no server cost and no API key. Takes whatever image is currently
+  // set as the profile image, strips its background, uploads the resulting
+  // transparent PNG through the existing uploadFile()/Cloudinary flow, and
+  // replaces profileImage with the new URL.
+  const handleRemoveProfileImageBackground = async () => {
+    if (!form.hero.profileImage || removingBgProfileImage) return;
+    setRemovingBgProfileImage(true);
+    setMessage("");
+    try {
+      // removeBackground accepts a URL directly - no need to fetch it ourselves.
+      const blob = await removeBackground(form.hero.profileImage);
+      const processedFile = new File([blob], "profile-nobg.png", { type: "image/png" });
+      const url = await uploadFile(processedFile);
+      updateField("hero", "profileImage", url);
+      setMessage("Background removed successfully.");
+    } catch (err) {
+      console.error("Background removal failed:", err);
+      setMessage("Background remove nahi ho saka. Dobara try karein.");
+    } finally {
+      setRemovingBgProfileImage(false);
+    }
+  };
+
   const inputClass =
     "w-full bg-surfaceAlt border border-border rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition";
   const labelClass = "text-xs text-textMuted mono block mb-1.5 mt-4 tracking-wide";
@@ -452,27 +481,50 @@ const AdminDashboard = () => {
                   <label className={labelClass}>Tagline</label>
                   <input className={inputClass} value={form.hero.tagline} onChange={(e) => updateField("hero", "tagline", e.target.value)} />
 
-                  {/* Profile image - gallery picker (same pattern as project screenshots/video) */}
+                  {/* Profile image - gallery picker (same pattern as project screenshots/video),
+                      plus a "Remove Background" action that processes the currently uploaded
+                      image entirely client-side and re-uploads the transparent result. */}
                   <label className={labelClass}>Profile Image</label>
                   {form.hero.profileImage ? (
                     <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
-                      <img
-                        src={form.hero.profileImage}
-                        alt="Profile"
-                        className="w-20 h-20 rounded-lg object-cover border border-border shrink-0"
-                      />
+                      <div
+                        className="w-20 h-20 rounded-lg border border-border shrink-0 overflow-hidden flex items-center justify-center"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                          backgroundSize: "10px 10px",
+                          backgroundPosition: "0 0, 0 5px, 5px -5px, -5px 0px",
+                        }}
+                      >
+                        <img
+                          src={form.hero.profileImage}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <label className={galleryBtnClass}>
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          {uploadingProfileImage ? "Uploading..." : "Replace from Gallery"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={uploadingProfileImage}
-                            onChange={(e) => handleProfileImageSelect(e.target.files?.[0])}
-                          />
-                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <label className={galleryBtnClass}>
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            {uploadingProfileImage ? "Uploading..." : "Replace from Gallery"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingProfileImage || removingBgProfileImage}
+                              onChange={(e) => handleProfileImageSelect(e.target.files?.[0])}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleRemoveProfileImageBackground}
+                            disabled={removingBgProfileImage || uploadingProfileImage}
+                            className={`${galleryBtnClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+                          >
+                            <Wand2 className="w-3.5 h-3.5" />
+                            {removingBgProfileImage ? "Removing Background..." : "Remove Background"}
+                          </button>
+                        </div>
                         <button onClick={removeProfileImage} className="text-xs text-red-400 mt-2 ml-1 hover:underline flex items-center gap-1">
                           <X className="w-3 h-3" /> Remove
                         </button>

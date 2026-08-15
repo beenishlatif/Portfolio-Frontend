@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "axios": "^1.7.2",
     "cloudinary": "^2.10.0",
     "framer-motion": "^11.3.8",

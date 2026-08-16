@@ -247,9 +247,45 @@ const AdminDashboard = () => {
   const linesToArray = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
   // --- Gallery upload helpers for project media (screenshots / video) ---
-  // NOTE: adjust the endpoint path and the `data.url` response key below to match
-  // whatever your backend's upload route actually returns.
+  // NOTE: Videos are uploaded DIRECTLY to Cloudinary from the browser instead of
+  // going through the backend. Vercel serverless functions enforce a hard
+  // request-body limit of ~4.5MB - any request bigger than that gets rejected
+  // with a 413 before it ever reaches Express/multer, and Vercel's error
+  // response for that 413 doesn't include CORS headers either, which is why
+  // the browser reports it as a CORS error even though the real problem is
+  // the payload size. Screenshots (small images) still go through the
+  // existing backend `/upload` route since they're comfortably under the
+  // limit.
+  //
+  // Requires an UNSIGNED upload preset in your Cloudinary dashboard:
+  // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
+  const CLOUDINARY_CLOUD_NAME = "dusj3szjo"; // <-- replace with your actual Cloudinary cloud name
+  const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // <-- replace with your unsigned upload preset name
+
   const uploadFile = async (file) => {
+    const isVideo = file.type.startsWith("video/");
+
+    // Videos: go straight to Cloudinary, bypassing the backend/Vercel body-size limit
+    if (isVideo) {
+      const cloudForm = new FormData();
+      cloudForm.append("file", file);
+      cloudForm.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
+        { method: "POST", body: cloudForm }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || "Video upload failed");
+      }
+
+      const cloudData = await res.json();
+      return cloudData.secure_url;
+    }
+
+    // Images: keep going through the existing backend upload route
     const formData = new FormData();
     formData.append("file", file);
     const { data } = await api.post("/upload", formData, {

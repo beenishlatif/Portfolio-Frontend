@@ -260,8 +260,7 @@ const AdminDashboard = () => {
   // Requires an UNSIGNED upload preset in your Cloudinary dashboard:
   // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
   const CLOUDINARY_CLOUD_NAME = "dusj3szjo";
-const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya // <-- replace with your unsigned upload preset name
-
+const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
   const uploadFile = async (file) => {
     const isVideo = file.type.startsWith("video/");
 
@@ -285,15 +284,14 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
 
       // Phone-recorded videos are often .mov (H.265/HEVC) which most browsers
       // can't play natively in a <video> tag - "No video with supported
-      // format and MIME type found" is exactly that error. Instead of using
-      // secure_url as-is (which keeps the original format/codec), we build
-      // the delivery URL with Cloudinary's f_mp4,q_auto transformation so it
-      // always serves back a browser-playable H.264 MP4, regardless of what
-      // format was originally uploaded.
-      const playableUrl = cloudData.secure_url.replace(
-        "/video/upload/",
-        "/video/upload/f_mp4,q_auto,vc_h264/"
-      );
+      // format and MIME type found" is exactly that error. secure_url alone
+      // keeps the ORIGINAL file extension (e.g. .mov), and just adding
+      // transformation flags to that URL isn't enough - the browser still
+      // sees ".mov" and gives up before even asking Cloudinary to transcode.
+      // So we rebuild the delivery URL from public_id with an explicit
+      // ".mp4" extension, which forces Cloudinary to actually deliver
+      // browser-playable H.264 MP4 bytes regardless of the source format.
+      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264/${cloudData.public_id}.mp4`;
       return playableUrl;
     }
 

@@ -19,6 +19,7 @@ import {
   Calendar,
   Building2,
   ArrowUpRight,
+  ArrowLeft,
   CheckCircle2,
   Download,
 } from "lucide-react";
@@ -473,8 +474,9 @@ const toEmbedUrl = (url = "") => {
 };
 
 // Combines a project's screenshots + demo video into one navigable media
-// array for the lightbox. Each item carries its own caption/description.
-// The first screenshot (if any) also doubles as the card's cover image.
+// array — still used for the project card's cover image + media count
+// badge in the grid (NOT for the detail page anymore, which shows
+// screenshots and video as two separate, clearly labeled sections).
 const getProjectMedia = (p) => {
   const items = [];
   (p.screenshots || []).forEach((s) => {
@@ -555,12 +557,15 @@ const Portfolio = ({ slugProp }) => {
 
   // "Pages" are switched by click instead of scrolled-to — each nav item
   // is treated as its own page rather than an anchor on one long scroll.
+  // "project-detail" is a special extra page (not in SECTIONS / the navbar)
+  // that renders whichever project is stored in `selectedProject` below.
   const [activeSection, setActiveSection] = useState("hero");
   const [scrolled, setScrolled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const [lightboxProject, setLightboxProject] = useState(null);
-  const [lightboxMedia, setLightboxMedia] = useState([]);
+  // Currently open project on the full-page project detail view
+  // (replaces the old lightboxProject/lightboxMedia modal state).
+  const [selectedProject, setSelectedProject] = useState(null);
   const [skillFilter, setSkillFilter] = useState("All");
   const [projectFilter, setProjectFilter] = useState("All");
 
@@ -630,19 +635,19 @@ const Portfolio = ({ slugProp }) => {
     return () => el.removeEventListener("scroll", onScroll);
   }, [activeSection]);
 
-  // Keyboard: Esc closes the gallery modal. Since every screenshot is shown
-  // at once (no more one-by-one carousel), left/right navigation isn't needed.
+  // Keyboard: Esc goes back to the Projects grid whenever the full-page
+  // project detail view is open (mirrors the old modal's Esc-to-close).
   useEffect(() => {
-    if (!lightboxProject) return;
+    if (activeSection !== "project-detail") return;
     const handleKey = (e) => {
       if (e.key === "Escape") {
-        setLightboxProject(null);
-        setLightboxMedia([]);
+        goToSection("projects");
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [lightboxProject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
 
   // Every time the "page" changes, land at the top of it and close the
   // mobile menu — mirrors a real page navigation instead of a scroll jump.
@@ -720,15 +725,10 @@ const Portfolio = ({ slugProp }) => {
   ].filter(Boolean);
   const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(([, val]) => Boolean(val));
 
-  const openLightbox = (project) => {
-    const media = getProjectMedia(project);
-    setLightboxProject(project);
-    setLightboxMedia(media);
-  };
-
-  const closeLightbox = () => {
-    setLightboxProject(null);
-    setLightboxMedia([]);
+  // Opens the full-page project detail view (replaces the old modal lightbox).
+  const openProjectPage = (project) => {
+    setSelectedProject(project);
+    goToSection("project-detail");
   };
 
   return (
@@ -757,7 +757,10 @@ const Portfolio = ({ slugProp }) => {
               </span>
             </button>
 
-            {/* Desktop nav - underline-indicator style instead of a filled pill */}
+            {/* Desktop nav - underline-indicator style instead of a filled pill.
+                Note: activeSection can be "project-detail" (not in SECTIONS),
+                in which case none of these tabs show an underline, which is
+                correct since the detail page isn't one of the main pages. */}
             <nav className="hidden lg:flex items-center gap-1">
               {SECTIONS.map((s) => (
                 <button
@@ -1349,7 +1352,7 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
                   <p className="text-textMuted text-sm md:text-base max-w-xl">
-                    A look at what I've built — click any project to explore screenshots and demo videos.
+                    A look at what I've built — click any project to open its full details, screenshots and demo video.
                   </p>
                 </Reveal>
 
@@ -1381,7 +1384,9 @@ const Portfolio = ({ slugProp }) => {
                 )}
 
                 {/* Unified project grid — clean, consistent card size, no more
-                    long side-by-side "spotlight" layout. Featured just gets a badge. */}
+                    long side-by-side "spotlight" layout. Featured just gets a badge.
+                    Clicking a card now navigates to a dedicated full-page project
+                    view (openProjectPage) instead of opening a modal. */}
                 {filteredProjects.length > 0 && (
                   <motion.div
                     layout
@@ -1414,8 +1419,7 @@ const Portfolio = ({ slugProp }) => {
                             </div>
 
                             <button
-                              onClick={() => (media.length > 0 ? openLightbox(p) : null)}
-                              disabled={media.length === 0}
+                              onClick={() => openProjectPage(p)}
                               className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
                             >
                               {cover ? (
@@ -1453,17 +1457,20 @@ const Portfolio = ({ slugProp }) => {
                                 </span>
                               )}
 
-                              {media.length > 0 && (
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
-                                  <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
-                                    <Eye className="w-4 h-4" /> View Gallery
-                                  </span>
-                                </div>
-                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                                <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
+                                  <Eye className="w-4 h-4" /> View Project
+                                </span>
+                              </div>
                             </button>
 
                             <div className="p-5">
-                              <h3 className="font-display font-semibold mb-1.5 group-hover:text-primary transition-colors">{p.title}</h3>
+                              <button
+                                onClick={() => openProjectPage(p)}
+                                className="text-left w-full"
+                              >
+                                <h3 className="font-display font-semibold mb-1.5 group-hover:text-primary transition-colors">{p.title}</h3>
+                              </button>
                               <p className="text-textMuted text-sm leading-relaxed mb-4 line-clamp-2">{p.description}</p>
 
                               {p.techStack?.length > 0 && (
@@ -1484,30 +1491,36 @@ const Portfolio = ({ slugProp }) => {
                                 </div>
                               )}
 
-                              {(p.liveLink || p.githubLink) && (
-                                <div className="flex items-center gap-4 pt-3 border-t border-border">
-                                  {p.liveLink && (
-                                    <a
-                                      href={p.liveLink}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" /> Live Demo
-                                    </a>
-                                  )}
-                                  {p.githubLink && (
-                                    <a
-                                      href={p.githubLink}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
-                                    >
-                                      <GithubMark className="w-3.5 h-3.5" /> Code
-                                    </a>
-                                  )}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-4 pt-3 border-t border-border">
+                                <button
+                                  onClick={() => openProjectPage(p)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View Details
+                                </button>
+                                {p.liveLink && (
+                                  <a
+                                    href={p.liveLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> Live Demo
+                                  </a>
+                                )}
+                                {p.githubLink && (
+                                  <a
+                                    href={p.githubLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
+                                  >
+                                    <GithubMark className="w-3.5 h-3.5" /> Code
+                                  </a>
+                                )}
+                              </div>
                             </div>
                           </TiltCard>
                         );
@@ -1515,96 +1528,147 @@ const Portfolio = ({ slugProp }) => {
                     </AnimatePresence>
                   </motion.div>
                 )}
+              </section>
+            )}
 
-                {/* Gallery modal: every screenshot the admin added is shown at once in
-                    a grid, each with its own caption/description underneath — no more
-                    clicking through images one at a time. Demo video (if any) sits on
-                    top, full width. */}
-                <AnimatePresence>
-                  {lightboxProject && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="fixed inset-0 z-50 bg-black/85 flex items-start md:items-center justify-center p-4 md:p-6 overflow-y-auto"
-                      onClick={closeLightbox}
-                    >
-                      <motion.div
-                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                        className="max-w-5xl w-full my-auto bg-bg border border-border rounded-2xl overflow-hidden shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-between gap-4 px-5 md:px-7 py-4 border-b border-border sticky top-0 bg-bg/95 backdrop-blur z-10">
-                          <div className="min-w-0">
-                            <h3 className="font-display text-lg font-semibold truncate">{lightboxProject.title}</h3>
-                            <p className="mono text-[11px] text-textMuted mt-0.5">
-                              {lightboxMedia.length} {lightboxMedia.length === 1 ? "item" : "items"} in gallery
-                            </p>
-                          </div>
-                          <button
-                            onClick={closeLightbox}
-                            className="shrink-0 w-9 h-9 rounded-full border border-border flex items-center justify-center text-textMuted hover:text-primary hover:border-primary transition"
-                            aria-label="Close gallery"
+            {/* ===== Project Detail — dedicated full page (replaces the old modal) =====
+                Reached via openProjectPage(p), which sets selectedProject and
+                navigates activeSection to "project-detail". Screenshots and the
+                demo video are shown as two separate, clearly labeled sections
+                instead of being merged into one mixed gallery grid, and the
+                description gets its own well-formatted card up top. */}
+            {activeSection === "project-detail" && selectedProject && (
+              <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-20 max-w-5xl mx-auto w-full overflow-hidden">
+                <AuroraBackground />
+
+                <Reveal>
+                  <button
+                    onClick={() => goToSection("projects")}
+                    className="inline-flex items-center gap-2 text-sm text-textMuted hover:text-primary transition mb-8"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Projects
+                  </button>
+                </Reveal>
+
+                <Reveal delay={0.05}>
+                  <div className="flex flex-wrap items-start justify-between gap-5 mb-6">
+                    <div>
+                      {selectedProject.featured && (
+                        <span className="inline-flex items-center gap-1.5 mono text-[10px] px-2.5 py-1 rounded-full bg-gradient-to-r from-primary to-accent text-white mb-3">
+                          <Sparkles className="w-3 h-3" /> Featured Project
+                        </span>
+                      )}
+                      <h1 className="font-display text-3xl md:text-4xl font-bold leading-tight">{selectedProject.title}</h1>
+                    </div>
+
+                    {(selectedProject.liveLink || selectedProject.githubLink) && (
+                      <div className="flex flex-wrap items-center gap-3 shrink-0">
+                        {selectedProject.liveLink && (
+                          <a
+                            href={selectedProject.liveLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_24px_-10px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
                           >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
+                            <ExternalLink className="w-4 h-4" /> Live Demo
+                          </a>
+                        )}
+                        {selectedProject.githubLink && (
+                          <a
+                            href={selectedProject.githubLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
+                          >
+                            <GithubMark className="w-4 h-4" /> View Code
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                        <div className="p-5 md:p-7 max-h-[75vh] overflow-y-auto">
-                          {lightboxProject.description && (
-                            <p className="text-textMuted text-sm leading-relaxed mb-6 max-w-2xl">{lightboxProject.description}</p>
-                          )}
-
-                          {lightboxMedia.length === 0 ? (
-                            <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
-                          ) : (
-                            <div className="grid sm:grid-cols-2 gap-5">
-                              {lightboxMedia.map((m, mi) => (
-                                <motion.div
-                                  key={mi}
-                                  initial={{ opacity: 0, y: 16 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.35, delay: Math.min(mi * 0.06, 0.36), ease: [0.22, 1, 0.36, 1] }}
-                                  className={`rounded-xl overflow-hidden border border-border bg-surface ${
-                                    m.type === "video" ? "sm:col-span-2" : ""
-                                  }`}
-                                >
-                                  {m.type === "video" ? (
-                                    isVideoFile(m.src) ? (
-                                      <video src={m.src} controls className="w-full max-h-[60vh] bg-black" />
-                                    ) : (
-                                      <iframe
-                                        src={toEmbedUrl(m.src)}
-                                        title={`${lightboxProject.title} demo`}
-                                        allow="autoplay; fullscreen"
-                                        className="w-full aspect-video"
-                                      />
-                                    )
-                                  ) : (
-                                    <img
-                                      src={m.src}
-                                      alt={m.caption || lightboxProject.title}
-                                      className="w-full max-h-[60vh] object-contain bg-black"
-                                    />
-                                  )}
-                                  {m.caption && (
-                                    <p className="text-textMuted text-sm leading-relaxed px-4 py-3 border-t border-border">
-                                      {m.caption}
-                                    </p>
-                                  )}
-                                </motion.div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    </motion.div>
+                  {selectedProject.techStack?.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-10">
+                      {selectedProject.techStack.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="mono text-xs px-3 py-1.5 rounded-full bg-surfaceAlt text-accent border border-border"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
                   )}
-                </AnimatePresence>
+                </Reveal>
+
+                {/* Description — its own clearly-labeled card, well-spaced and
+                    readable, instead of a squeezed one-liner above the gallery. */}
+                {selectedProject.description && (
+                  <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6 md:p-8 mb-10">
+                    <h2 className="mono text-xs uppercase tracking-widest text-primary mb-4">About This Project</h2>
+                    <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
+                      {selectedProject.description}
+                    </p>
+                  </Reveal>
+                )}
+
+                {/* Demo Video — its own dedicated section, separate from screenshots */}
+                {selectedProject.video?.url && (
+                  <Reveal delay={0.15} className="mb-10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <PlayCircle className="w-5 h-5 text-primary" />
+                      <h2 className="font-display text-xl md:text-2xl font-semibold">Demo Video</h2>
+                    </div>
+                    <div className="rounded-2xl overflow-hidden border border-border bg-black">
+                      {isVideoFile(selectedProject.video.url) ? (
+                        <video src={selectedProject.video.url} controls className="w-full max-h-[65vh] bg-black" />
+                      ) : (
+                        <iframe
+                          src={toEmbedUrl(selectedProject.video.url)}
+                          title={`${selectedProject.title} demo`}
+                          allow="autoplay; fullscreen"
+                          className="w-full aspect-video"
+                        />
+                      )}
+                    </div>
+                    {selectedProject.video.caption && (
+                      <p className="text-textMuted text-sm leading-relaxed mt-3">{selectedProject.video.caption}</p>
+                    )}
+                  </Reveal>
+                )}
+
+                {/* Screenshots — its own dedicated section, separate from the video */}
+                {selectedProject.screenshots?.length > 0 && (
+                  <Reveal delay={0.2} className="mb-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ImageIcon className="w-5 h-5 text-primary" />
+                      <h2 className="font-display text-xl md:text-2xl font-semibold">Screenshots</h2>
+                      <span className="mono text-[11px] text-textMuted border border-border rounded-full px-2.5 py-0.5 ml-1">
+                        {selectedProject.screenshots.length}
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-5">
+                      {selectedProject.screenshots.map((shot, si) => (
+                        <div key={si} className="rounded-xl overflow-hidden border border-border bg-surface">
+                          <img
+                            src={shot.url}
+                            alt={shot.caption || `${selectedProject.title} screenshot ${si + 1}`}
+                            className="w-full max-h-[50vh] object-contain bg-black"
+                          />
+                          {shot.caption && (
+                            <p className="text-textMuted text-sm leading-relaxed px-4 py-3 border-t border-border">
+                              {shot.caption}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Reveal>
+                )}
+
+                {!selectedProject.video?.url && !(selectedProject.screenshots?.length > 0) && (
+                  <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
+                )}
               </section>
             )}
 

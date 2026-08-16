@@ -394,6 +394,35 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
     updateField("hero", "profileImage", "");
   };
 
+  // --- AVIF-safe conversion helper for background removal ---
+  // @imgly/background-removal has its own internal image decoder which does
+  // NOT support the AVIF format (throws "Invalid format: image/avif").
+  // Modern browsers, however, CAN decode AVIF natively via createImageBitmap/
+  // <canvas>. So instead of handing the raw image URL straight to
+  // removeBackground(), we first fetch the image, let the browser decode it
+  // (whatever format it is - AVIF, WebP, JPEG, PNG...), draw it onto a canvas,
+  // and re-export it as a plain PNG Blob. That PNG Blob is then what actually
+  // gets passed to removeBackground(), so the library never sees the
+  // original (possibly unsupported) format at all.
+  const convertImageUrlToPngBlob = async (imageUrl) => {
+    const res = await fetch(imageUrl, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not fetch the image for processing.");
+    const sourceBlob = await res.blob();
+
+    const bitmap = await createImageBitmap(sourceBlob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+
+    const pngBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas export failed."))), "image/png");
+    });
+    return pngBlob;
+  };
+
   // --- Client-side background removal for the hero profile image ---
   // Runs entirely in the browser (WASM/ONNX model via @imgly/background-removal),
   // so there's no server cost and no API key. Takes whatever image is currently
@@ -405,13 +434,18 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
     setRemovingBgProfileImage(true);
     setMessage("");
     try {
-      // removeBackground accepts a URL directly - no need to fetch it ourselves.
+      // Normalize to a browser-decoded PNG Blob first (fixes AVIF and any
+      // other format @imgly/background-removal can't parse on its own -
+      // see convertImageUrlToPngBlob for details), THEN run removeBackground
+      // on that Blob instead of on the raw URL.
+      const normalizedPngBlob = await convertImageUrlToPngBlob(form.hero.profileImage);
+
       // device: "cpu" forces the single-threaded WASM backend instead of the
       // multi-threaded/WebGPU one, which needs special Cross-Origin-Opener-Policy /
       // Cross-Origin-Embedder-Policy response headers that Vercel doesn't set by
       // default. Single-threaded is a bit slower but works everywhere with no
       // extra server config.
-      const blob = await removeBackground(form.hero.profileImage, {
+      const blob = await removeBackground(normalizedPngBlob, {
         device: "cpu",
       });
       const processedFile = new File([blob], "profile-nobg.png", { type: "image/png" });

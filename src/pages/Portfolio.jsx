@@ -65,6 +65,34 @@ const SOCIAL_ICONS = {
   ),
 };
 
+// ---------------------------------------------------------------------
+// FIX: Admins often paste external links (GitHub, Resume, Live Demo,
+// social links) WITHOUT a protocol — e.g. "github.com/username" instead
+// of "https://github.com/username". A plain <a href="github.com/...">
+// is NOT treated by the browser as an absolute external URL — it's
+// treated as a path *relative to the current page*. Since this is a
+// React Router SPA, that "relative path" click gets intercepted by the
+// app's own client-side routing instead of leaving the site, and ends
+// up matching the /:slug catch-all route — which is exactly why
+// clicking "GitHub" appeared to stay on the site and show
+// "Portfolio Not Found" (it was trying to load a portfolio whose slug
+// was literally "github.com/username") instead of opening GitHub.
+//
+// ensureAbsoluteUrl() normalizes any such link at render time so the
+// href is always a real absolute URL (or mailto:/tel:), regardless of
+// whether the admin included "https://" when saving it.
+const ensureAbsoluteUrl = (url = "") => {
+  const trimmed = (url || "").trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith("//")) {
+    // Already has a scheme (https:, http:, mailto:, tel:, etc.) or is
+    // protocol-relative — leave it exactly as-is.
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+};
+// ---------------------------------------------------------------------
+
 const TechMarquee = ({ items }) => {
   if (!items || items.length === 0) return null;
   const loop = [...items, ...items];
@@ -201,7 +229,7 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
                     val && (
                       <a
                         key={key}
-                        href={val}
+                        href={ensureAbsoluteUrl(val)}
                         target="_blank"
                         rel="noreferrer"
                         className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
@@ -785,7 +813,7 @@ const Portfolio = ({ slugProp }) => {
             <div className="flex items-center gap-2.5 shrink-0">
               {portfolio.hero.githubLink && (
                 <a
-                  href={portfolio.hero.githubLink}
+                  href={ensureAbsoluteUrl(portfolio.hero.githubLink)}
                   target="_blank"
                   rel="noreferrer"
                   className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-textMuted hover:text-primary hover:border-primary transition"
@@ -796,7 +824,7 @@ const Portfolio = ({ slugProp }) => {
               )}
               {portfolio.hero.resumeLink && (
                 <a
-                  href={portfolio.hero.resumeLink}
+                  href={ensureAbsoluteUrl(portfolio.hero.resumeLink)}
                   target="_blank"
                   rel="noreferrer"
                   className="hidden sm:inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition mono"
@@ -1500,7 +1528,7 @@ const Portfolio = ({ slugProp }) => {
                                 </button>
                                 {p.liveLink && (
                                   <a
-                                    href={p.liveLink}
+                                    href={ensureAbsoluteUrl(p.liveLink)}
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={(e) => e.stopPropagation()}
@@ -1511,7 +1539,7 @@ const Portfolio = ({ slugProp }) => {
                                 )}
                                 {p.githubLink && (
                                   <a
-                                    href={p.githubLink}
+                                    href={ensureAbsoluteUrl(p.githubLink)}
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={(e) => e.stopPropagation()}
@@ -1565,7 +1593,7 @@ const Portfolio = ({ slugProp }) => {
                       <div className="flex flex-wrap items-center gap-3 shrink-0">
                         {selectedProject.liveLink && (
                           <a
-                            href={selectedProject.liveLink}
+                            href={ensureAbsoluteUrl(selectedProject.liveLink)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_24px_-10px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
@@ -1575,7 +1603,7 @@ const Portfolio = ({ slugProp }) => {
                         )}
                         {selectedProject.githubLink && (
                           <a
-                            href={selectedProject.githubLink}
+                            href={ensureAbsoluteUrl(selectedProject.githubLink)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
@@ -1991,7 +2019,7 @@ const Portfolio = ({ slugProp }) => {
                     )}
                     {portfolio.hero.resumeLink && (
                       <a
-                        href={portfolio.hero.resumeLink}
+                        href={ensureAbsoluteUrl(portfolio.hero.resumeLink)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl border border-border bg-surface/60 backdrop-blur text-text hover:border-primary hover:text-primary transition text-sm font-medium"
@@ -2006,7 +2034,7 @@ const Portfolio = ({ slugProp }) => {
                       {socialEntries.map(([key, val]) => (
                         <a
                           key={key}
-                          href={val}
+                          href={ensureAbsoluteUrl(val)}
                           target="_blank"
                           rel="noreferrer"
                           className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"

@@ -226,8 +226,9 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
   const social = portfolio.contact?.socialLinks || {};
   // GitHub can come from either the dedicated "GitHub Link" field on the
   // hero (portfolio.hero.githubLink) or from contact.socialLinks.github —
-  // whichever is set is shown here. Uses the strict sanitizer so it can
-  // never resolve to a mailto:/Gmail-style link.
+  // whichever is set is shown here, right alongside LinkedIn/etc. Uses
+  // the strict sanitizer so it can never resolve to a mailto:/Gmail-style
+  // link.
   const footerGithubHref = ensureGithubUrl(social.github || portfolio.hero.githubLink);
   const hasSocial = Object.entries(social).some(([key, val]) => key !== "github" && Boolean(val)) || Boolean(footerGithubHref);
 

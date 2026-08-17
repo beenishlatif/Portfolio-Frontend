@@ -89,7 +89,6 @@ const emptyPortfolio = {
 const emptyProject = {
   title: "",
   description: "",
-  coverImage: "", // single dedicated cover image, separate from the screenshots gallery
   screenshots: [], // [{ url, caption }]
   video: { url: "", caption: "" },
   techStack: [],
@@ -111,7 +110,6 @@ const AdminDashboard = () => {
   // --- Upload state (keyed by project index) for gallery-based media pickers ---
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
-  const [uploadingCoverImage, setUploadingCoverImage] = useState({});
 
   // --- Upload state for the hero profile image gallery picker ---
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
@@ -137,7 +135,6 @@ const AdminDashboard = () => {
           projects: (data.projects || []).map((p) => ({
             ...emptyProject,
             ...p,
-            coverImage: p.coverImage || "",
             screenshots: p.screenshots || [],
             video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
           })),
@@ -178,7 +175,6 @@ const AdminDashboard = () => {
         projects: (data.projects || []).map((p) => ({
           ...emptyProject,
           ...p,
-          coverImage: p.coverImage || "",
           screenshots: p.screenshots || [],
           video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
         })),
@@ -263,9 +259,8 @@ const AdminDashboard = () => {
   //
   // Requires an UNSIGNED upload preset in your Cloudinary dashboard:
   // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
-  const CLOUDINARY_CLOUD_NAME = "your_cloud_name"; // <-- replace with your actual Cloudinary cloud name
-  const CLOUDINARY_UPLOAD_PRESET = "your_unsigned_preset"; // <-- replace with your unsigned upload preset name
-
+  const CLOUDINARY_CLOUD_NAME = "dusj3szjo";
+const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
   const uploadFile = async (file) => {
     const isVideo = file.type.startsWith("video/");
 
@@ -307,35 +302,6 @@ const AdminDashboard = () => {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return data.url;
-  };
-
-  // --- Cover image upload helper (single image, dedicated to this project) ---
-  // Kept fully separate from the Screenshots gallery below: this is what shows
-  // on the project card on the public portfolio, so it never gets mixed into
-  // the Screenshots section on the project detail page.
-  const handleCoverImageSelect = async (index, file) => {
-    if (!file) return;
-    setUploadingCoverImage((prev) => ({ ...prev, [index]: true }));
-    try {
-      const url = await uploadFile(file);
-      setForm((prev) => {
-        const list = [...prev.projects];
-        list[index] = { ...list[index], coverImage: url };
-        return { ...prev, projects: list };
-      });
-    } catch (err) {
-      setMessage("Cover image upload failed.");
-    } finally {
-      setUploadingCoverImage((prev) => ({ ...prev, [index]: false }));
-    }
-  };
-
-  const removeCoverImage = (index) => {
-    setForm((prev) => {
-      const list = [...prev.projects];
-      list[index] = { ...list[index], coverImage: "" };
-      return { ...prev, projects: list };
-    });
   };
 
   const handleScreenshotsSelect = async (index, fileList) => {
@@ -428,6 +394,35 @@ const AdminDashboard = () => {
     updateField("hero", "profileImage", "");
   };
 
+  // --- AVIF-safe conversion helper for background removal ---
+  // @imgly/background-removal has its own internal image decoder which does
+  // NOT support the AVIF format (throws "Invalid format: image/avif").
+  // Modern browsers, however, CAN decode AVIF natively via createImageBitmap/
+  // <canvas>. So instead of handing the raw image URL straight to
+  // removeBackground(), we first fetch the image, let the browser decode it
+  // (whatever format it is - AVIF, WebP, JPEG, PNG...), draw it onto a canvas,
+  // and re-export it as a plain PNG Blob. That PNG Blob is then what actually
+  // gets passed to removeBackground(), so the library never sees the
+  // original (possibly unsupported) format at all.
+  const convertImageUrlToPngBlob = async (imageUrl) => {
+    const res = await fetch(imageUrl, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not fetch the image for processing.");
+    const sourceBlob = await res.blob();
+
+    const bitmap = await createImageBitmap(sourceBlob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+
+    const pngBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas export failed."))), "image/png");
+    });
+    return pngBlob;
+  };
+
   // --- Client-side background removal for the hero profile image ---
   // Runs entirely in the browser (WASM/ONNX model via @imgly/background-removal),
   // so there's no server cost and no API key. Takes whatever image is currently
@@ -439,13 +434,18 @@ const AdminDashboard = () => {
     setRemovingBgProfileImage(true);
     setMessage("");
     try {
-      // removeBackground accepts a URL directly - no need to fetch it ourselves.
+      // Normalize to a browser-decoded PNG Blob first (fixes AVIF and any
+      // other format @imgly/background-removal can't parse on its own -
+      // see convertImageUrlToPngBlob for details), THEN run removeBackground
+      // on that Blob instead of on the raw URL.
+      const normalizedPngBlob = await convertImageUrlToPngBlob(form.hero.profileImage);
+
       // device: "cpu" forces the single-threaded WASM backend instead of the
       // multi-threaded/WebGPU one, which needs special Cross-Origin-Opener-Policy /
       // Cross-Origin-Embedder-Policy response headers that Vercel doesn't set by
       // default. Single-threaded is a bit slower but works everywhere with no
       // extra server config.
-      const blob = await removeBackground(form.hero.profileImage, {
+      const blob = await removeBackground(normalizedPngBlob, {
         device: "cpu",
       });
       const processedFile = new File([blob], "profile-nobg.png", { type: "image/png" });
@@ -767,54 +767,12 @@ const AdminDashboard = () => {
                     <label className={labelClass}>Description</label>
                     <textarea rows={2} className={inputClass} value={p.description} onChange={(e) => updateListItem("projects", i, "description", e.target.value)} />
 
-                    {/* Cover Image - single dedicated image, separate from the Screenshots
-                        gallery below. This is what shows on the project card in the grid
-                        and as the large media on the left side of the project detail page
-                        (when there's no demo video) - it never appears inside Screenshots. */}
-                    <label className={labelClass}>Cover Image</label>
-                    <p className="text-[11px] text-textMuted -mt-1 mb-2">
-                      Shown on the project card and as the main image on the project page. Kept separate from Screenshots below.
-                    </p>
-                    {p.coverImage ? (
-                      <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3 mb-3">
-                        <img src={p.coverImage} alt="Cover" className="w-20 h-20 rounded-lg object-cover border border-border shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <label className={galleryBtnClass}>
-                            <ImageIcon className="w-3.5 h-3.5" />
-                            {uploadingCoverImage[i] ? "Uploading..." : "Replace from Gallery"}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              disabled={!!uploadingCoverImage[i]}
-                              onChange={(e) => handleCoverImageSelect(i, e.target.files?.[0])}
-                            />
-                          </label>
-                          <button onClick={() => removeCoverImage(i)} className="text-xs text-red-400 mt-2 ml-1 hover:underline flex items-center gap-1">
-                            <X className="w-3 h-3" /> Remove
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <label className={`${galleryBtnClass} mb-3`}>
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        {uploadingCoverImage[i] ? "Uploading..." : "Choose Cover Image from Gallery"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={!!uploadingCoverImage[i]}
-                          onChange={(e) => handleCoverImageSelect(i, e.target.files?.[0])}
-                        />
-                      </label>
-                    )}
-
                     {/* Screenshots - gallery picker (multiple), each with its own caption.
-                        Purely a gallery of extra screenshots shown on the project detail
-                        page - the Cover Image above is separate and never duplicated here. */}
+                        The first screenshot added automatically becomes the project's cover
+                        image on the public portfolio - no separate cover upload needed. */}
                     <label className={labelClass}>Screenshots</label>
                     <p className="text-[11px] text-textMuted -mt-1 mb-2">
-                      Additional screenshots shown in the project's gallery section.
+                      The first screenshot here is used as the project's cover on your portfolio.
                     </p>
                     <div className="space-y-3 mb-3">
                       {(p.screenshots || []).map((shot, si) => (

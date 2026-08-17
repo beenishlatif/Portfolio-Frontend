@@ -1395,12 +1395,7 @@ const Portfolio = ({ slugProp }) => {
                     <AnimatePresence mode="popLayout">
                       {filteredProjects.map((p, i) => {
                         const media = getProjectMedia(p);
-                        // Card thumbnail priority: dedicated coverImage first, then
-                        // fall back to the first screenshot, then a video placeholder
-                        // icon if only a demo video exists with no images at all.
-                        const cover = p.coverImage
-                          ? { type: "image", src: p.coverImage }
-                          : media.find((m) => m.type === "image") || media[0];
+                        const cover = media[0];
                         return (
                           <TiltCard
                             key={`${p.title}-${i}`}
@@ -1606,61 +1601,43 @@ const Portfolio = ({ slugProp }) => {
                   )}
                 </Reveal>
 
-                {/* Media + Description — well-organized two-column layout:
-                    primary media (demo video if present, otherwise the cover
-                    image) on the left, description on the right. The cover
-                    image is dedicated and separate from the Screenshots
-                    gallery below, so it's never duplicated there. On smaller
-                    screens the columns stack (media on top). */}
-                {(selectedProject.video?.url || selectedProject.coverImage || selectedProject.description) && (
-                  <Reveal delay={0.1} className="grid lg:grid-cols-2 gap-6 lg:gap-8 mb-10 items-start">
-                    {/* Left — primary media */}
-                    <div className="rounded-2xl overflow-hidden border border-border bg-black lg:sticky lg:top-24">
-                      {selectedProject.video?.url ? (
-                        isVideoFile(selectedProject.video.url) ? (
-                          <video src={selectedProject.video.url} controls className="w-full max-h-[70vh] bg-black" />
-                        ) : (
-                          <iframe
-                            src={toEmbedUrl(selectedProject.video.url)}
-                            title={`${selectedProject.title} demo`}
-                            allow="autoplay; fullscreen"
-                            className="w-full aspect-video"
-                          />
-                        )
-                      ) : selectedProject.coverImage ? (
-                        <img
-                          src={selectedProject.coverImage}
-                          alt={selectedProject.title}
-                          className="w-full max-h-[70vh] object-contain bg-black"
-                        />
-                      ) : (
-                        <div className="aspect-video flex items-center justify-center text-textMuted">
-                          <ImageIcon className="w-8 h-8" />
-                        </div>
-                      )}
-                      {selectedProject.video?.url && selectedProject.video.caption && (
-                        <p className="text-textMuted text-sm leading-relaxed px-4 py-3 border-t border-border bg-surface">
-                          {selectedProject.video.caption}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Right — description */}
-                    <div className="bg-surface border border-border rounded-2xl p-6 md:p-8">
-                      <h2 className="mono text-xs uppercase tracking-widest text-primary mb-4">About This Project</h2>
-                      {selectedProject.description ? (
-                        <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
-                          {selectedProject.description}
-                        </p>
-                      ) : (
-                        <p className="text-textMuted text-sm">No description added yet.</p>
-                      )}
-                    </div>
+                {/* Description — its own clearly-labeled card, well-spaced and
+                    readable, instead of a squeezed one-liner above the gallery. */}
+                {selectedProject.description && (
+                  <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6 md:p-8 mb-10">
+                    <h2 className="mono text-xs uppercase tracking-widest text-primary mb-4">About This Project</h2>
+                    <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
+                      {selectedProject.description}
+                    </p>
                   </Reveal>
                 )}
 
-                {/* Screenshots — its own dedicated gallery section, separate from
-                    the cover image and demo video above. */}
+                {/* Demo Video — its own dedicated section, separate from screenshots */}
+                {selectedProject.video?.url && (
+                  <Reveal delay={0.15} className="mb-10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <PlayCircle className="w-5 h-5 text-primary" />
+                      <h2 className="font-display text-xl md:text-2xl font-semibold">Demo Video</h2>
+                    </div>
+                    <div className="rounded-2xl overflow-hidden border border-border bg-black">
+                      {isVideoFile(selectedProject.video.url) ? (
+                        <video src={selectedProject.video.url} controls className="w-full max-h-[65vh] bg-black" />
+                      ) : (
+                        <iframe
+                          src={toEmbedUrl(selectedProject.video.url)}
+                          title={`${selectedProject.title} demo`}
+                          allow="autoplay; fullscreen"
+                          className="w-full aspect-video"
+                        />
+                      )}
+                    </div>
+                    {selectedProject.video.caption && (
+                      <p className="text-textMuted text-sm leading-relaxed mt-3">{selectedProject.video.caption}</p>
+                    )}
+                  </Reveal>
+                )}
+
+                {/* Screenshots — its own dedicated section, separate from the video */}
                 {selectedProject.screenshots?.length > 0 && (
                   <Reveal delay={0.2} className="mb-6">
                     <div className="flex items-center gap-2 mb-4">
@@ -1689,12 +1666,9 @@ const Portfolio = ({ slugProp }) => {
                   </Reveal>
                 )}
 
-                {!selectedProject.video?.url &&
-                  !selectedProject.coverImage &&
-                  !selectedProject.description &&
-                  !(selectedProject.screenshots?.length > 0) && (
-                    <p className="text-textMuted text-sm">No media or description added for this project yet.</p>
-                  )}
+                {!selectedProject.video?.url && !(selectedProject.screenshots?.length > 0) && (
+                  <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
+                )}
               </section>
             )}
 

@@ -545,181 +545,6 @@ const TiltCard = ({ children, className, delay = 0 }) => {
   );
 };
 
-// ------------------------------------------------------------------------
-// Projects — "case study index" row
-// ------------------------------------------------------------------------
-// Redesigned away from the uniform card-grid: each project is now a
-// full-width editorial row, alternating text/media sides, with a large
-// ghost index numeral bleeding off the row's edge. The numeral is doing
-// real work here (it's the project's actual position in the curated
-// list — a changelog/portfolio "entry number"), not decoration, so it's
-// allowed to be the loud element while everything else stays quiet.
-//
-// Motion: each row's media panel reveals with a clip-path "curtain" wipe
-// the first time it scrolls into view (direction alternates with the row),
-// and the text column drifts in from the opposite side. On hover, a small
-// tab slides up from the image's bottom edge instead of a heavy dark
-// overlay, so the screenshot itself stays legible while still reading as
-// clickable.
-const ProjectRow = ({ project: p, index: i, onOpen }) => {
-  const isEven = i % 2 === 0;
-  const media = getProjectMedia(p);
-  const cover = p.coverImage
-    ? { type: "image", src: p.coverImage }
-    : media.find((m) => m.type === "image") || media[0];
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="group relative grid lg:grid-cols-12 gap-8 lg:gap-14 items-center py-14 md:py-20 border-t border-border first:border-t-0 first:pt-6"
-    >
-      {/* Ghost index numeral — the project's real position in the list. */}
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none select-none hidden sm:block absolute top-8 md:top-10 font-display font-bold text-[6rem] md:text-[9rem] leading-none text-text/[0.045] -z-10 ${
-          isEven ? "left-0 lg:-left-3" : "right-0 lg:-right-3"
-        }`}
-      >
-        {String(i + 1).padStart(2, "0")}
-      </span>
-
-      {/* Text column */}
-      <div className={`lg:col-span-5 min-w-0 ${isEven ? "lg:order-1" : "lg:order-2"}`}>
-        <motion.div
-          initial={{ opacity: 0, x: isEven ? -20 : 20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, amount: 0.35 }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="mono text-[11px] text-primary uppercase tracking-widest">
-              Case Study {String(i + 1).padStart(2, "0")}
-            </span>
-            {p.featured && (
-              <span className="inline-flex items-center gap-1 mono text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r from-primary to-accent text-white">
-                <Sparkles className="w-2.5 h-2.5" /> Featured
-              </span>
-            )}
-          </div>
-
-          <button onClick={() => onOpen(p)} className="text-left block">
-            <h3 className="font-display text-2xl md:text-3xl font-semibold leading-tight mb-3 group-hover:text-primary transition-colors">
-              {p.title}
-            </h3>
-          </button>
-
-          <p className="text-textMuted text-sm md:text-base leading-relaxed mb-5 line-clamp-3">{p.description}</p>
-
-          {p.techStack?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-6">
-              {p.techStack.slice(0, 6).map((t, idx) => (
-                <span
-                  key={idx}
-                  className="mono text-[11px] px-2.5 py-1 rounded-full bg-surfaceAlt text-accent border border-border/70"
-                >
-                  {t}
-                </span>
-              ))}
-              {p.techStack.length > 6 && (
-                <span className="mono text-[11px] px-2.5 py-1 rounded-full bg-surfaceAlt text-textMuted">
-                  +{p.techStack.length - 6}
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center flex-wrap gap-x-5 gap-y-2">
-            <button onClick={() => onOpen(p)} className="inline-flex items-center gap-1.5 text-sm text-primary font-medium">
-              <Eye className="w-4 h-4" />
-              <span className="relative">
-                View Case Study
-                <span className="absolute left-0 -bottom-0.5 h-px w-0 bg-primary group-hover:w-full transition-all duration-300" />
-              </span>
-            </button>
-            {p.liveLink && (
-              <a
-                href={p.liveLink}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Live Demo
-              </a>
-            )}
-            {p.githubLink && (
-              <a
-                href={p.githubLink}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 text-sm text-textMuted hover:text-primary transition"
-              >
-                <GithubMark className="w-3.5 h-3.5" /> Code
-              </a>
-            )}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Media column */}
-      <div className={`lg:col-span-7 min-w-0 ${isEven ? "lg:order-2" : "lg:order-1"}`}>
-        <motion.button
-          onClick={() => onOpen(p)}
-          initial={{ clipPath: isEven ? "inset(0 100% 0 0)" : "inset(0 0 0 100%)" }}
-          whileInView={{ clipPath: "inset(0 0% 0 0%)" }}
-          viewport={{ once: true, amount: 0.25 }}
-          transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}
-          className="relative block w-full aspect-[16/10] rounded-2xl overflow-hidden bg-surfaceAlt border border-border"
-        >
-          {cover ? (
-            cover.type === "video" ? (
-              <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
-                <PlayCircle className="w-10 h-10" />
-              </div>
-            ) : (
-              <>
-                <img
-                  src={cover.src}
-                  alt=""
-                  aria-hidden="true"
-                  className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
-                />
-                <img
-                  src={cover.src}
-                  alt={p.title}
-                  className="relative w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                />
-              </>
-            )
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-textMuted">
-              <ImageIcon className="w-8 h-8" />
-            </div>
-          )}
-
-          {media.length > 1 && (
-            <span className="absolute top-3 right-3 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur flex items-center gap-1">
-              <Images className="w-3 h-3" />
-              {media.length}
-            </span>
-          )}
-
-          {/* Tab slides up from the bottom edge on hover — like a page tab
-              on a physical dossier — instead of a heavy dark overlay. */}
-          <span className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out mono text-[11px] bg-text text-bg px-4 py-2 rounded-t-lg flex items-center gap-1.5 shadow-lg">
-            <Eye className="w-3.5 h-3.5" /> Open
-          </span>
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-};
-
 // slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
 // and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
@@ -1527,48 +1352,182 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
                   <p className="text-textMuted text-sm md:text-base max-w-xl">
-                    A running index of what I've built — open any entry for the full case study, screenshots and demo video.
+                    A look at what I've built — click any project to open its full details, screenshots and demo video.
                   </p>
                 </Reveal>
 
                 {portfolio.projects.length === 0 && <p className="text-textMuted mt-10">No projects added yet.</p>}
 
-                {/* Filter — underline tabs rather than filled pills, echoing the
-                    navbar's own underline-indicator so the two "index" surfaces
-                    of the site (page nav, project list) speak one visual language. */}
                 {allProjectTechs.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-10 pb-1 border-b border-border">
+                  <div className="flex flex-wrap gap-2 mt-8">
                     {["All", ...allProjectTechs].map((t) => (
                       <button
                         key={t}
                         onClick={() => setProjectFilter(t)}
-                        className={`relative mono text-xs uppercase tracking-wide pb-3 transition-colors ${
-                          projectFilter === t ? "text-text" : "text-textMuted hover:text-text"
+                        className={`relative mono text-xs px-3.5 py-1.5 rounded-full border transition ${
+                          projectFilter === t
+                            ? "text-white border-transparent"
+                            : "border-border text-textMuted hover:border-primary/50 hover:text-text"
                         }`}
                       >
-                        {t}
                         {projectFilter === t && (
                           <motion.span
-                            layoutId="project-filter-underline"
-                            className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-gradient-to-r from-primary to-accent"
+                            layoutId="project-filter-pill"
+                            className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-full -z-10 shadow-[0_6px_16px_-6px_var(--color-primary)]"
                             transition={{ type: "spring", stiffness: 380, damping: 32 }}
                           />
                         )}
+                        {t}
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* Editorial case-study index — alternating text/media rows with
-                    a ghost entry-number per row, replacing the old uniform
-                    3-column card grid. */}
-                <motion.div layout>
-                  <AnimatePresence mode="popLayout">
-                    {filteredProjects.map((p, i) => (
-                      <ProjectRow key={`${p.title}-${i}`} project={p} index={i} onOpen={openProjectPage} />
-                    ))}
-                  </AnimatePresence>
-                </motion.div>
+                {/* Unified project grid — clean, consistent card size, no more
+                    long side-by-side "spotlight" layout. Featured just gets a badge.
+                    Clicking a card now navigates to a dedicated full-page project
+                    view (openProjectPage) instead of opening a modal. */}
+                {filteredProjects.length > 0 && (
+                  <motion.div
+                    layout
+                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10"
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {filteredProjects.map((p, i) => {
+                        const media = getProjectMedia(p);
+                        const cover = media[0];
+                        return (
+                          <TiltCard
+                            key={`${p.title}-${i}`}
+                            delay={Math.min(i * 0.06, 0.4)}
+                            className="group relative bg-surface border border-border rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-[0_20px_40px_-20px_rgba(0,0,0,0.4)] transition-[border-color,box-shadow]"
+                          >
+                            {p.featured && (
+                              <motion.span
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.15 }}
+                                className="absolute top-3 left-3 z-10 mono text-[10px] px-2.5 py-1 rounded-full bg-gradient-to-r from-primary to-accent text-white flex items-center gap-1 shadow-lg"
+                              >
+                                <Sparkles className="w-3 h-3" /> Featured
+                              </motion.span>
+                            )}
+
+                            {/* Diagonal shine sweep on hover — purely decorative polish */}
+                            <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+                              <div className="absolute -inset-y-10 -left-1/2 w-1/3 rotate-12 bg-white/10 opacity-0 group-hover:opacity-100 group-hover:translate-x-[420%] transition-all duration-[1100ms] ease-out" />
+                            </div>
+
+                            <button
+                              onClick={() => openProjectPage(p)}
+                              className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
+                            >
+                              {cover ? (
+                                cover.type === "video" ? (
+                                  <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
+                                    <PlayCircle className="w-10 h-10" />
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* Blurred backdrop fills the frame so the real image can sit
+                                        fully inside without ever being cropped/cut off. */}
+                                    <img
+                                      src={cover.src}
+                                      alt=""
+                                      aria-hidden="true"
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <img
+                                      src={cover.src}
+                                      alt={p.title}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                  </>
+                                )
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-textMuted">
+                                  <ImageIcon className="w-8 h-8" />
+                                </div>
+                              )}
+
+                              {media.length > 1 && (
+                                <span className="absolute bottom-2 right-2 mono text-[10px] bg-black/60 text-white px-2 py-1 rounded-full backdrop-blur flex items-center gap-1">
+                                  <Images className="w-3 h-3" />
+                                  {media.length}
+                                </span>
+                              )}
+
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                                <span className="text-white text-xs mono flex items-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all">
+                                  <Eye className="w-4 h-4" /> View Project
+                                </span>
+                              </div>
+                            </button>
+
+                            <div className="p-5">
+                              <button
+                                onClick={() => openProjectPage(p)}
+                                className="text-left w-full"
+                              >
+                                <h3 className="font-display font-semibold mb-1.5 group-hover:text-primary transition-colors">{p.title}</h3>
+                              </button>
+                              <p className="text-textMuted text-sm leading-relaxed mb-4 line-clamp-2">{p.description}</p>
+
+                              {p.techStack?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-4">
+                                  {p.techStack.slice(0, 4).map((t, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-accent group-hover:bg-accent/10 transition-colors"
+                                    >
+                                      {t}
+                                    </span>
+                                  ))}
+                                  {p.techStack.length > 4 && (
+                                    <span className="mono text-[11px] px-2 py-0.5 rounded bg-surfaceAlt text-textMuted">
+                                      +{p.techStack.length - 4}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-4 pt-3 border-t border-border">
+                                <button
+                                  onClick={() => openProjectPage(p)}
+                                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View Details
+                                </button>
+                                {p.liveLink && (
+                                  <a
+                                    href={p.liveLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> Live Demo
+                                  </a>
+                                )}
+                                {p.githubLink && (
+                                  <a
+                                    href={p.githubLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 text-xs text-textMuted hover:text-primary transition"
+                                  >
+                                    <GithubMark className="w-3.5 h-3.5" /> Code
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </TiltCard>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
               </section>
             )}
 
@@ -1642,61 +1601,43 @@ const Portfolio = ({ slugProp }) => {
                   )}
                 </Reveal>
 
-                {/* Media + Description — well-organized two-column layout:
-                    primary media (demo video if present, otherwise the cover
-                    image) on the left, description on the right. The cover
-                    image is dedicated and separate from the Screenshots
-                    gallery below, so it's never duplicated there. On smaller
-                    screens the columns stack (media on top). */}
-                {(selectedProject.video?.url || selectedProject.coverImage || selectedProject.description) && (
-                  <Reveal delay={0.1} className="grid lg:grid-cols-2 gap-6 lg:gap-8 mb-10 items-start">
-                    {/* Left — primary media */}
-                    <div className="rounded-2xl overflow-hidden border border-border bg-black lg:sticky lg:top-24">
-                      {selectedProject.video?.url ? (
-                        isVideoFile(selectedProject.video.url) ? (
-                          <video src={selectedProject.video.url} controls className="w-full max-h-[70vh] bg-black" />
-                        ) : (
-                          <iframe
-                            src={toEmbedUrl(selectedProject.video.url)}
-                            title={`${selectedProject.title} demo`}
-                            allow="autoplay; fullscreen"
-                            className="w-full aspect-video"
-                          />
-                        )
-                      ) : selectedProject.coverImage ? (
-                        <img
-                          src={selectedProject.coverImage}
-                          alt={selectedProject.title}
-                          className="w-full max-h-[70vh] object-contain bg-black"
-                        />
-                      ) : (
-                        <div className="aspect-video flex items-center justify-center text-textMuted">
-                          <ImageIcon className="w-8 h-8" />
-                        </div>
-                      )}
-                      {selectedProject.video?.url && selectedProject.video.caption && (
-                        <p className="text-textMuted text-sm leading-relaxed px-4 py-3 border-t border-border bg-surface">
-                          {selectedProject.video.caption}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Right — description */}
-                    <div className="bg-surface border border-border rounded-2xl p-6 md:p-8">
-                      <h2 className="mono text-xs uppercase tracking-widest text-primary mb-4">About This Project</h2>
-                      {selectedProject.description ? (
-                        <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
-                          {selectedProject.description}
-                        </p>
-                      ) : (
-                        <p className="text-textMuted text-sm">No description added yet.</p>
-                      )}
-                    </div>
+                {/* Description — its own clearly-labeled card, well-spaced and
+                    readable, instead of a squeezed one-liner above the gallery. */}
+                {selectedProject.description && (
+                  <Reveal delay={0.1} className="bg-surface border border-border rounded-2xl p-6 md:p-8 mb-10">
+                    <h2 className="mono text-xs uppercase tracking-widest text-primary mb-4">About This Project</h2>
+                    <p className="text-text leading-relaxed whitespace-pre-line text-base md:text-lg">
+                      {selectedProject.description}
+                    </p>
                   </Reveal>
                 )}
 
-                {/* Screenshots — its own dedicated gallery section, separate from
-                    the cover image and demo video above. */}
+                {/* Demo Video — its own dedicated section, separate from screenshots */}
+                {selectedProject.video?.url && (
+                  <Reveal delay={0.15} className="mb-10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <PlayCircle className="w-5 h-5 text-primary" />
+                      <h2 className="font-display text-xl md:text-2xl font-semibold">Demo Video</h2>
+                    </div>
+                    <div className="rounded-2xl overflow-hidden border border-border bg-black">
+                      {isVideoFile(selectedProject.video.url) ? (
+                        <video src={selectedProject.video.url} controls className="w-full max-h-[65vh] bg-black" />
+                      ) : (
+                        <iframe
+                          src={toEmbedUrl(selectedProject.video.url)}
+                          title={`${selectedProject.title} demo`}
+                          allow="autoplay; fullscreen"
+                          className="w-full aspect-video"
+                        />
+                      )}
+                    </div>
+                    {selectedProject.video.caption && (
+                      <p className="text-textMuted text-sm leading-relaxed mt-3">{selectedProject.video.caption}</p>
+                    )}
+                  </Reveal>
+                )}
+
+                {/* Screenshots — its own dedicated section, separate from the video */}
                 {selectedProject.screenshots?.length > 0 && (
                   <Reveal delay={0.2} className="mb-6">
                     <div className="flex items-center gap-2 mb-4">
@@ -1725,12 +1666,9 @@ const Portfolio = ({ slugProp }) => {
                   </Reveal>
                 )}
 
-                {!selectedProject.video?.url &&
-                  !selectedProject.coverImage &&
-                  !selectedProject.description &&
-                  !(selectedProject.screenshots?.length > 0) && (
-                    <p className="text-textMuted text-sm">No media or description added for this project yet.</p>
-                  )}
+                {!selectedProject.video?.url && !(selectedProject.screenshots?.length > 0) && (
+                  <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
+                )}
               </section>
             )}
 

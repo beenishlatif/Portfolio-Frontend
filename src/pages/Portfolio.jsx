@@ -224,7 +224,12 @@ const groupSkillsByCategory = (skills) => {
 // footer since only one section is mounted at a time.
 const PageFooter = ({ owner, portfolio, onNavigate }) => {
   const social = portfolio.contact?.socialLinks || {};
-  const hasSocial = Object.values(social).some(Boolean);
+  // GitHub can come from either the dedicated "GitHub Link" field on the
+  // hero (portfolio.hero.githubLink) or from contact.socialLinks.github —
+  // whichever is set is shown here. Uses the strict sanitizer so it can
+  // never resolve to a mailto:/Gmail-style link.
+  const footerGithubHref = ensureGithubUrl(social.github || portfolio.hero.githubLink);
+  const hasSocial = Object.entries(social).some(([key, val]) => key !== "github" && Boolean(val)) || Boolean(footerGithubHref);
 
   return (
     <footer className="border-t border-border mt-8">
@@ -260,19 +265,22 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
 
           <div>
             <p className="mono text-[10px] text-primary uppercase tracking-widest mb-4">Get In Touch</p>
-            {portfolio.contact.email && (
-              <a href={`mailto:${portfolio.contact.email}`} className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all">
-                {portfolio.contact.email}
-              </a>
-            )}
             {hasSocial && (
               <div className="flex items-center gap-2">
+                {footerGithubHref && (
+                  <a
+                    href={footerGithubHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
+                    aria-label="github"
+                  >
+                    {SOCIAL_ICONS.github}
+                  </a>
+                )}
                 {Object.entries(social).map(([key, val]) => {
-                  if (!val) return null;
-                  // GitHub uses the strict sanitizer so it can never
-                  // resolve to a mailto:/Gmail-style link — see
-                  // ensureGithubUrl() above for the full explanation.
-                  const href = key === "github" ? ensureGithubUrl(val) : ensureAbsoluteUrl(val);
+                  if (!val || key === "github") return null; // github handled above via footerGithubHref
+                  const href = ensureAbsoluteUrl(val);
                   if (!href) return null;
                   return (
                     <a
@@ -782,7 +790,12 @@ const Portfolio = ({ slugProp }) => {
       key: "email",
       label: "Email",
       value: portfolio.contact.email,
-      href: `mailto:${portfolio.contact.email}`,
+      // Opens Gmail's "compose new message" screen (pre-filled To:) in a
+      // new tab instead of triggering the OS's default mail client via
+      // mailto: — clicking the email now takes the visitor straight into
+      // Gmail so they can send a message from there.
+      href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(portfolio.contact.email)}`,
+      external: true,
       icon: <Mail className="w-4 h-4" />,
     },
     portfolio.contact.phone && {
@@ -799,7 +812,15 @@ const Portfolio = ({ slugProp }) => {
       icon: <MapPin className="w-4 h-4" />,
     },
   ].filter(Boolean);
-  const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(([, val]) => Boolean(val));
+  // GitHub can come from either the dedicated "GitHub Link" field on the
+  // hero (portfolio.hero.githubLink) or from contact.socialLinks.github —
+  // whichever is set is shown as its own icon alongside LinkedIn/etc below.
+  // Uses the strict sanitizer so it can never resolve to a mailto:/Gmail
+  // link (see ensureGithubUrl() above).
+  const contactGithubHref = ensureGithubUrl(portfolio.contact.socialLinks?.github || portfolio.hero.githubLink);
+  const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(
+    ([key, val]) => Boolean(val) && key !== "github" // github is handled separately via contactGithubHref
+  );
 
   // Opens the full-page project detail view (replaces the old modal lightbox).
   const openProjectPage = (project) => {
@@ -2019,7 +2040,9 @@ const Portfolio = ({ slugProp }) => {
                 </Reveal>
 
                 {/* Primary contact detail cards — one clean row, icon + label + value,
-                    consistent with the Email/Phone/Location cards elsewhere in the app. */}
+                    consistent with the Email/Phone/Location cards elsewhere in the app.
+                    The Email card now opens Gmail's "compose new message" screen in a
+                    new tab (c.external) instead of triggering mailto:. */}
                 {contactCards.length > 0 && (
                   <div className={`grid gap-4 mt-12 max-w-4xl mx-auto ${
                     contactCards.length === 1 ? "max-w-sm" : contactCards.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
@@ -2036,7 +2059,12 @@ const Portfolio = ({ slugProp }) => {
                         </span>
                         <p className="relative text-[10px] mono text-textMuted uppercase tracking-widest mb-1.5">{c.label}</p>
                         {c.href ? (
-                          <a href={c.href} className="relative block text-sm text-primary font-medium hover:underline break-all">
+                          <a
+                            href={c.href}
+                            target={c.external ? "_blank" : undefined}
+                            rel={c.external ? "noreferrer" : undefined}
+                            className="relative block text-sm text-primary font-medium hover:underline break-all"
+                          >
                             {c.value}
                           </a>
                         ) : (
@@ -2081,12 +2109,21 @@ const Portfolio = ({ slugProp }) => {
                     )}
                   </div>
 
-                  {socialEntries.length > 0 && (
+                  {(socialEntries.length > 0 || contactGithubHref) && (
                     <div className="relative flex items-center justify-center gap-3 mt-8 pt-7 border-t border-border/60">
+                      {contactGithubHref && (
+                        <a
+                          href={contactGithubHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                          aria-label="github"
+                        >
+                          {SOCIAL_ICONS.github}
+                        </a>
+                      )}
                       {socialEntries.map(([key, val]) => {
-                        // GitHub uses the strict sanitizer so it can never
-                        // resolve to a mailto:/Gmail-style link.
-                        const href = key === "github" ? ensureGithubUrl(val) : ensureAbsoluteUrl(val);
+                        const href = ensureAbsoluteUrl(val);
                         if (!href) return null;
                         return (
                           <a

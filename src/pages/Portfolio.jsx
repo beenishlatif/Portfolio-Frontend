@@ -91,6 +91,49 @@ const ensureAbsoluteUrl = (url = "") => {
   }
   return `https://${trimmed}`;
 };
+
+// ---------------------------------------------------------------------
+// FIX #2: GitHub icon opening Gmail instead of GitHub.
+//
+// Root cause: if the saved value in `hero.githubLink` (or
+// `contact.socialLinks.github`) is actually an EMAIL ADDRESS like
+// "someone@gmail.com" (e.g. admin pasted the wrong field, or the field
+// got mixed up on save), ensureAbsoluteUrl() above sees no scheme and
+// naively prepends "https://":
+//
+//     someone@gmail.com  →  https://someone@gmail.com
+//
+// That is a perfectly valid URL syntactically — but "someone@" is
+// parsed by the browser as URL *userinfo*, and the actual host is
+// "gmail.com". So the link silently opens Gmail instead of GitHub,
+// even though nothing "looks" wrong in the code driving the anchor.
+//
+// ensureGithubUrl() is a stricter sanitizer used ONLY for GitHub links.
+// It rejects anything that looks like an email/mailto, and only ever
+// builds a URL whose host is actually github.com. A bare username
+// ("someuser") is still accepted and expanded to github.com/someuser.
+// Anything else resolves to "" so the link is simply not rendered —
+// i.e. clicking never opens anything unexpected (Gmail or otherwise).
+const ensureGithubUrl = (url = "") => {
+  let trimmed = (url || "").trim();
+  if (!trimmed) return "";
+
+  // Strip any scheme/mailto prefix so we can inspect the real value.
+  trimmed = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/^mailto:/i, "");
+
+  // Anything with an "@" is an email/handle, never a github.com URL.
+  if (trimmed.includes("@")) return "";
+
+  // Bare username only (letters/numbers/-/_) → expand to a github.com URL.
+  if (/^[\w-]+$/.test(trimmed)) {
+    trimmed = `github.com/${trimmed}`;
+  }
+
+  // Hard requirement: the host must actually be github.com.
+  if (!/(^|\/)(www\.)?github\.com(\/|$)/i.test(trimmed)) return "";
+
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+};
 // ---------------------------------------------------------------------
 
 const TechMarquee = ({ items }) => {
@@ -224,20 +267,25 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
             )}
             {hasSocial && (
               <div className="flex items-center gap-2">
-                {Object.entries(social).map(
-                  ([key, val]) =>
-                    val && (
-                      <a
-                        key={key}
-                        href={ensureAbsoluteUrl(val)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
-                      >
-                        {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                      </a>
-                    )
-                )}
+                {Object.entries(social).map(([key, val]) => {
+                  if (!val) return null;
+                  // GitHub uses the strict sanitizer so it can never
+                  // resolve to a mailto:/Gmail-style link — see
+                  // ensureGithubUrl() above for the full explanation.
+                  const href = key === "github" ? ensureGithubUrl(val) : ensureAbsoluteUrl(val);
+                  if (!href) return null;
+                  return (
+                    <a
+                      key={key}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
+                    >
+                      {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                    </a>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -759,6 +807,10 @@ const Portfolio = ({ slugProp }) => {
     goToSection("project-detail");
   };
 
+  // GitHub link shown in the navbar — resolved once here via the strict
+  // sanitizer so the icon is only rendered when it's a real github.com URL.
+  const navGithubHref = ensureGithubUrl(portfolio.hero.githubLink);
+
   return (
     <div className="h-screen bg-bg text-text flex flex-col overflow-hidden">
       {/* ===== Premium Navbar ===== */}
@@ -811,9 +863,9 @@ const Portfolio = ({ slugProp }) => {
             </nav>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              {portfolio.hero.githubLink && (
+              {navGithubHref && (
                 <a
-                  href={ensureAbsoluteUrl(portfolio.hero.githubLink)}
+                  href={navGithubHref}
                   target="_blank"
                   rel="noreferrer"
                   className="hidden sm:inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-textMuted hover:text-primary hover:border-primary transition"
@@ -1537,9 +1589,9 @@ const Portfolio = ({ slugProp }) => {
                                     <ExternalLink className="w-3.5 h-3.5" /> Live Demo
                                   </a>
                                 )}
-                                {p.githubLink && (
+                                {p.githubLink && ensureGithubUrl(p.githubLink) && (
                                   <a
-                                    href={ensureAbsoluteUrl(p.githubLink)}
+                                    href={ensureGithubUrl(p.githubLink)}
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={(e) => e.stopPropagation()}
@@ -1589,7 +1641,7 @@ const Portfolio = ({ slugProp }) => {
                       <h1 className="font-display text-3xl md:text-4xl font-bold leading-tight">{selectedProject.title}</h1>
                     </div>
 
-                    {(selectedProject.liveLink || selectedProject.githubLink) && (
+                    {(selectedProject.liveLink || (selectedProject.githubLink && ensureGithubUrl(selectedProject.githubLink))) && (
                       <div className="flex flex-wrap items-center gap-3 shrink-0">
                         {selectedProject.liveLink && (
                           <a
@@ -1601,9 +1653,9 @@ const Portfolio = ({ slugProp }) => {
                             <ExternalLink className="w-4 h-4" /> Live Demo
                           </a>
                         )}
-                        {selectedProject.githubLink && (
+                        {selectedProject.githubLink && ensureGithubUrl(selectedProject.githubLink) && (
                           <a
-                            href={ensureAbsoluteUrl(selectedProject.githubLink)}
+                            href={ensureGithubUrl(selectedProject.githubLink)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-border text-text hover:border-primary hover:text-primary transition text-sm font-medium"
@@ -2031,18 +2083,24 @@ const Portfolio = ({ slugProp }) => {
 
                   {socialEntries.length > 0 && (
                     <div className="relative flex items-center justify-center gap-3 mt-8 pt-7 border-t border-border/60">
-                      {socialEntries.map(([key, val]) => (
-                        <a
-                          key={key}
-                          href={ensureAbsoluteUrl(val)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
-                          aria-label={key}
-                        >
-                          {SOCIAL_ICONS[key] || key[0].toUpperCase()}
-                        </a>
-                      ))}
+                      {socialEntries.map(([key, val]) => {
+                        // GitHub uses the strict sanitizer so it can never
+                        // resolve to a mailto:/Gmail-style link.
+                        const href = key === "github" ? ensureGithubUrl(val) : ensureAbsoluteUrl(val);
+                        if (!href) return null;
+                        return (
+                          <a
+                            key={key}
+                            href={href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary hover:-translate-y-0.5 transition-all"
+                            aria-label={key}
+                          >
+                            {SOCIAL_ICONS[key] || key[0].toUpperCase()}
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
                 </Reveal>

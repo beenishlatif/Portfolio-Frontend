@@ -260,7 +260,12 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
           <div>
             <p className="mono text-[10px] text-primary uppercase tracking-widest mb-4">Get In Touch</p>
             {portfolio.contact.email && (
-              <a href={`mailto:${portfolio.contact.email}`} className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all">
+              <a
+                href={getGmailComposeUrl(portfolio.contact.email)}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all"
+              >
                 {portfolio.contact.email}
               </a>
             )}
@@ -842,7 +847,8 @@ const Portfolio = ({ slugProp }) => {
       key: "email",
       label: "Email",
       value: portfolio.contact.email,
-      href: `mailto:${portfolio.contact.email}`,
+      href: getGmailComposeUrl(portfolio.contact.email),
+      external: true,
       icon: <Mail className="w-4 h-4" />,
     },
     portfolio.contact.phone && {
@@ -1348,7 +1354,12 @@ const Portfolio = ({ slugProp }) => {
                             </span>
                             <div className="min-w-0">
                               <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Email</p>
-                              <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary font-medium hover:underline break-all">
+                              <a
+                                href={getGmailComposeUrl(portfolio.contact.email)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-primary font-medium hover:underline break-all"
+                              >
                                 {portfolio.contact.email}
                               </a>
                             </div>
@@ -2136,7 +2147,11 @@ const Portfolio = ({ slugProp }) => {
                         </span>
                         <p className="relative text-[10px] mono text-textMuted uppercase tracking-widest mb-1.5">{c.label}</p>
                         {c.href ? (
-                          <a href={c.href} className="relative block text-sm text-primary font-medium hover:underline break-all">
+                          <a
+                            href={c.href}
+                            {...(c.external ? { target: "_blank", rel: "noreferrer" } : {})}
+                            className="relative block text-sm text-primary font-medium hover:underline break-all"
+                          >
                             {c.value}
                           </a>
                         ) : (
@@ -2163,7 +2178,9 @@ const Portfolio = ({ slugProp }) => {
                   <div className="relative flex flex-wrap items-center justify-center gap-3">
                     {portfolio.contact.email && (
                       <a
-                        href={`mailto:${portfolio.contact.email}`}
+                        href={getGmailComposeUrl(portfolio.contact.email)}
+                        target="_blank"
+                        rel="noreferrer"
                         className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
                       >
                         <Mail className="w-4 h-4" /> Say Hello

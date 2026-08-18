@@ -642,6 +642,45 @@ const TiltCard = ({ children, className, delay = 0 }) => {
   );
 };
 
+// Cover-video: plays muted/looped as the project card's cover image (in
+// place of a static screenshot) whenever a video happens to be the first
+// piece of media the admin uploaded for that project. Pauses itself when
+// scrolled out of view so idle cards on a long project grid don't keep
+// decoding video in the background.
+const CoverVideo = ({ src, className }) => {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.play().catch(() => {});
+        } else {
+          el.pause();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      className={className}
+      muted
+      loop
+      playsInline
+      autoPlay
+      preload="metadata"
+    />
+  );
+};
+
 // slugProp lets this page be used both at /:slug (any admin's portfolio, param-driven)
 // and at "/" for the site's main/primary portfolio (see Home.jsx).
 const Portfolio = ({ slugProp }) => {
@@ -1494,7 +1533,15 @@ const Portfolio = ({ slugProp }) => {
                     <AnimatePresence mode="popLayout">
                       {filteredProjects.map((p, i) => {
                         const media = getProjectMedia(p);
+                        // The cover is whatever media item was added FIRST — could be
+                        // a screenshot or the demo video. If it's a real video file,
+                        // it plays inline (muted/looped) as the cover itself instead
+                        // of a static placeholder. If it's a YouTube/embed link, its
+                        // real thumbnail is used as the cover image instead.
                         const cover = media[0];
+                        const coverIsPlayableVideo = cover?.type === "video" && isVideoFile(cover.src);
+                        const coverYoutubeThumb = cover?.type === "video" && !coverIsPlayableVideo ? getYoutubeThumbnail(cover.src) : null;
+
                         return (
                           <TiltCard
                             key={`${p.title}-${i}`}
@@ -1522,7 +1569,41 @@ const Portfolio = ({ slugProp }) => {
                               className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
                             >
                               {cover ? (
-                                cover.type === "video" ? (
+                                coverIsPlayableVideo ? (
+                                  <>
+                                    {/* Blurred backdrop copy of the video fills the frame,
+                                        same treatment as the image cover, so the real
+                                        video can sit fully inside without being cropped. */}
+                                    <CoverVideo
+                                      src={cover.src}
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <CoverVideo
+                                      src={cover.src}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                    <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-black/55 text-white backdrop-blur">
+                                      <PlayCircle className="w-4 h-4" />
+                                    </span>
+                                  </>
+                                ) : coverYoutubeThumb ? (
+                                  <>
+                                    <img
+                                      src={coverYoutubeThumb}
+                                      alt=""
+                                      aria-hidden="true"
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <img
+                                      src={coverYoutubeThumb}
+                                      alt={p.title}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                    <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-black/55 text-white backdrop-blur">
+                                      <PlayCircle className="w-4 h-4" />
+                                    </span>
+                                  </>
+                                ) : cover.type === "video" ? (
                                   <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
                                     <PlayCircle className="w-10 h-10" />
                                   </div>

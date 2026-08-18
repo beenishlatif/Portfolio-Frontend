@@ -545,6 +545,31 @@ const toEmbedUrl = (url = "") => {
   return url;
 };
 
+// Returns a real thumbnail image URL for a YouTube video link (used as the
+// project-card cover when the video is the first/only piece of media), or
+// null if the given url isn't a recognizable YouTube link — in which case
+// the caller falls back to showing the actual <video> file as its own cover.
+const getYoutubeThumbnail = (url = "") => {
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
+  return yt ? `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg` : null;
+};
+
+// FIX: mailto: links depend on the visitor's device having a default mail
+// app configured — on machines without one (very common, especially on
+// shared/dev machines or when the browser has no handler registered),
+// clicking a mailto: link silently does nothing useful (e.g. just opens a
+// blank new tab) instead of letting the visitor actually send a message.
+// Every "email me" link in this file now opens Gmail's web compose screen
+// directly instead — this works in any browser, on any device, regardless
+// of what (if anything) is configured as the system's default mail client,
+// and always opens in a new tab so the portfolio itself stays open.
+const getGmailComposeUrl = (email = "", subject = "") => {
+  if (!email) return "";
+  const params = new URLSearchParams({ view: "cm", fs: "1", to: email });
+  if (subject) params.set("su", subject);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+};
+
 // Combines a project's screenshots + demo video into one navigable media
 // array — still used for the project card's cover image + media count
 // badge in the grid (NOT for the detail page anymore, which shows

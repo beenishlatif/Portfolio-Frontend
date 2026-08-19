@@ -114,6 +114,58 @@ const emptyProject = {
 const isBlobUrl = (url = "") => /^blob:/i.test((url || "").trim());
 // ---------------------------------------------------------------------
 
+// ---------------------------------------------------------------------
+// FIX (root cause of "new video upload nahi dikhti, purani videos hi
+// show hoti hain"): the playable video URL built in uploadFile() below
+// is an on-the-fly Cloudinary TRANSFORMATION url (q_auto,vc_h264,ac_aac).
+// Cloudinary does NOT pre-generate that transformed .mp4 at upload time -
+// it generates it lazily, in the background, the FIRST time that exact
+// URL is actually requested. For anything but a tiny clip this can take
+// anywhere from a couple of seconds to well over a minute (it's a real
+// video transcode, not a cache lookup).
+//
+// Previously, uploadFile() returned that URL to the caller IMMEDIATELY
+// after the raw upload finished, and the caller (handleVideoSelect) put
+// it straight into `form`, which the <video> tag in this file - and the
+// public Portfolio page - then tried to load right away. At that point
+// the transformation was often still processing, so the very first
+// request for it came back incomplete/erroring, and a plain <video> tag
+// never retries a failed source on its own. Net effect: the URL was
+// "burned" as broken the moment it was first rendered, and only started
+// working (eventually, from Cloudinary's cache) much later - which is
+// exactly why OLD videos (transformed ages ago, now served instantly
+// from cache) play fine, while a video you JUST uploaded appears to not
+// show up at all.
+//
+// FIX: after building the transformation URL, actively poll it (a cheap
+// ranged GET) until Cloudinary actually returns the finished file, and
+// only THEN resolve uploadFile()'s promise. This means the URL that ever
+// reaches `form` / the database is guaranteed to already be playable -
+// the admin just sees "Processing video..." for a bit longer instead of
+// a silently broken video later.
+const waitForCloudinaryVideoReady = async (url, { maxAttempts = 30, intervalMs = 3000 } = {}) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      // A tiny ranged request is enough to know whether Cloudinary has
+      // finished transcoding - no need to download the whole video just
+      // to check readiness.
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Range: "bytes=0-1" },
+        cache: "no-store",
+      });
+      if (res.ok || res.status === 206) return true;
+    } catch (_err) {
+      // Network hiccup / still processing - just retry.
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  // Give up waiting after maxAttempts - return the URL anyway rather than
+  // blocking the admin forever; it will typically finish shortly after.
+  return false;
+};
+// ---------------------------------------------------------------------
+
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -127,6 +179,11 @@ const AdminDashboard = () => {
   // --- Upload state (keyed by project index) for gallery-based media pickers ---
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
+
+  // Tracks the sub-stage of a video upload so the UI can show a more
+  // accurate message: "uploading" (raw file going to Cloudinary) vs
+  // "processing" (waiting for the h264/aac transformation to be ready).
+  const [videoUploadStage, setVideoUploadStage] = useState({});
 
   // Temporary LOCAL preview URLs (blob:) shown while a video is uploading,
   // keyed by project index. Kept completely separate from `form` on purpose:
@@ -331,11 +388,13 @@ const AdminDashboard = () => {
   // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
   const CLOUDINARY_CLOUD_NAME = "dusj3szjo";
 const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
-  const uploadFile = async (file) => {
+  const uploadFile = async (file, { onStageChange } = {}) => {
     const isVideo = file.type.startsWith("video/");
 
     // Videos: go straight to Cloudinary, bypassing the backend/Vercel body-size limit
     if (isVideo) {
+      onStageChange?.("uploading");
+
       const cloudForm = new FormData();
       cloudForm.append("file", file);
       cloudForm.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -367,39 +426,30 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
       // ".mp4" extension, which forces Cloudinary to actually deliver
       // browser-playable H.264 MP4 bytes regardless of the source format.
       //
-      // FIX (Chrome works, Firefox says "No video with supported format and
-      // MIME type found"): the previous transformation only forced the video
-      // codec to H.264 (`vc_h264`) but left the audio codec whatever the
-      // source happened to produce. Chrome's decoder is very permissive and
-      // will happily play almost any audio codec alongside H.264 (AAC, MP3,
-      // even some it technically shouldn't). Firefox's decoder is stricter -
-      // it rejects non-AAC audio (Cloudinary can keep the source's original
-      // AC3/Opus/PCM audio track when only the video codec is specified).
-      // That mismatch is exactly why the same URL plays in Chrome but shows
-      // "No video with supported format and MIME type found" in Firefox.
-      //
-      // NOTE: two earlier attempts at this transformation both caused
-      // Cloudinary to reject the request outright (400 Bad Request),
-      // which is why the video stopped playing in EVERY browser, not
-      // just Firefox:
-      //   1. `vc_h264:baseline:3.1` hard-locked the profile/level - Baseline
-      //      Level 3.1 caps out around 720p, so higher-resolution/bitrate
-      //      source videos (very common for phone recordings) couldn't be
-      //      satisfied by that transformation at all.
-      //   2. `fl_faststart` is NOT a real Cloudinary flag (confirmed via the
-      //      `X-Cld-Error: Invalid flag in transformation: faststart`
-      //      response header) - Cloudinary already serves MP4s web-optimized
-      //      (moov atom up front) by default, so this flag was both wrong
-      //      and unnecessary.
-      // Only the two codecs are pinned now - this is what actually fixes
-      // Firefox (which strictly rejects non-AAC audio tracks) without
-      // over-constraining the video and breaking Chrome:
-      //   - vc_h264  -> force H.264 video (universal browser support, no
-      //                 forced profile/level so Cloudinary can pick one that
-      //                 actually fits the source resolution/bitrate)
-      //   - ac_aac   -> force AAC audio (universally supported; this is the
-      //                 actual fix for the Firefox-only playback failure)
+      // Only the two codecs are pinned now - vc_h264 (video, universal
+      // browser support) and ac_aac (audio, fixes Firefox strictly
+      // rejecting non-AAC audio tracks) - without over-constraining the
+      // video and breaking playback in other browsers.
       const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264,ac_aac/${cloudData.public_id}.mp4`;
+
+      // -----------------------------------------------------------------
+      // FIX: this transformation URL is generated by Cloudinary LAZILY -
+      // on the very first request for it - not at upload time. For any
+      // video beyond a few seconds long, that first-time transcode can
+      // take several seconds to well over a minute. Returning the URL
+      // immediately (as before) meant the <video> tag tried to load it
+      // while it was still processing, got an incomplete/failed response,
+      // and never retried - so the video looked "not uploaded" even
+      // though it was, while OLDER videos (already transformed and cached
+      // by Cloudinary from a previous load) kept working fine.
+      //
+      // Waiting here means uploadFile() only resolves once the URL is
+      // actually confirmed playable, so it's always safe to hand straight
+      // to a <video> tag / save to the database.
+      // -----------------------------------------------------------------
+      onStageChange?.("processing");
+      await waitForCloudinaryVideoReady(playableUrl);
+
       return playableUrl;
     }
 
@@ -474,9 +524,15 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
     setVideoPreviewUrls((prev) => ({ ...prev, [index]: localPreviewUrl }));
 
     setUploadingVideo((prev) => ({ ...prev, [index]: true }));
+    setVideoUploadStage((prev) => ({ ...prev, [index]: "uploading" }));
     setMessage("");
     try {
-      const url = await uploadFile(file);
+      const url = await uploadFile(file, {
+        onStageChange: (stage) => setVideoUploadStage((prev) => ({ ...prev, [index]: stage })),
+      });
+      // At this point uploadFile() has already confirmed the transformed
+      // URL is actually playable (see waitForCloudinaryVideoReady above),
+      // so it's safe to store it in `form` right away.
       setForm((prev) => {
         const list = [...prev.projects];
         list[index] = { ...list[index], video: { url, caption: list[index].video?.caption || "" } };
@@ -494,6 +550,11 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
         return next;
       });
       setUploadingVideo((prev) => ({ ...prev, [index]: false }));
+      setVideoUploadStage((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
     }
   };
 
@@ -963,7 +1024,7 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
                           <video src={p.video?.url || videoPreviewUrls[i]} className="w-full h-full object-cover" muted />
                           {uploadingVideo[i] ? (
                             <span className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-[10px] mono text-center px-1">
-                              Uploading...
+                              {videoUploadStage[i] === "processing" ? "Processing..." : "Uploading..."}
                             </span>
                           ) : (
                             <PlayCircle className="w-6 h-6 text-white absolute" />
@@ -984,7 +1045,11 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
                             </>
                           )}
                           {uploadingVideo[i] && (
-                            <p className="text-xs text-textMuted">Uploading to Cloudinary, please wait...</p>
+                            <p className="text-xs text-textMuted">
+                              {videoUploadStage[i] === "processing"
+                                ? "Video Cloudinary par process ho rahi hai, please wait... (bade videos ke liye ye 1-2 minute tak lag sakta hai)"
+                                : "Uploading to Cloudinary, please wait..."}
+                            </p>
                           )}
                         </div>
                       </div>

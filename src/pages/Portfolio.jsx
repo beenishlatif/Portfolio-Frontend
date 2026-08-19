@@ -78,18 +78,60 @@ const SOCIAL_ICONS = {
 // "Portfolio Not Found" (it was trying to load a portfolio whose slug
 // was literally "github.com/username") instead of opening GitHub.
 //
-// ensureAbsoluteUrl() normalizes any such link at render time so the
-// href is always a real absolute URL (or mailto:/tel:), regardless of
-// whether the admin included "https://" when saving it.
+// HARDENED FURTHER: this also protects against a *wrong* value being
+// saved in one of these "profile/website" fields — e.g. someone's email
+// address, or a "mailto:..."/"tel:..." string accidentally saved in the
+// GitHub field. Previously, if the saved value already had ANY scheme
+// (including mailto:/tel:), it was trusted and used as-is — so a
+// mistakenly-saved "mailto:someone@gmail.com" (or even a bare
+// "someone@gmail.com") in the GitHub field would silently open the mail
+// app / Gmail instead of a GitHub profile. Now:
+//   1. Any scheme that isn't http/https (mailto:, tel:, javascript:,
+//      etc.) is stripped back down to the raw text first — it's never
+//      trusted as-is for a website/profile link.
+//   2. https:// is then applied to whatever text remains.
+//   3. The result is checked against a basic "does this look like a
+//      real domain" pattern (and specifically rejects anything with an
+//      "@" in the host, which is what an email address turns into).
+//      If it still doesn't look like a usable website address, "" is
+//      returned instead of a broken/unsafe link.
+//
+// Every call site below only renders the <a> tag when this returns a
+// non-empty string — so a wrong/garbage value simply doesn't render as
+// a clickable link at all, instead of ever risking a click landing on
+// this app's own internal /:slug route, another user's profile, the
+// mail app, or the phone dialer.
 const ensureAbsoluteUrl = (url = "") => {
-  const trimmed = (url || "").trim();
-  if (!trimmed) return trimmed;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith("//")) {
-    // Already has a scheme (https:, http:, mailto:, tel:, etc.) or is
-    // protocol-relative — leave it exactly as-is.
-    return trimmed;
+  let trimmed = (url || "").trim();
+  if (!trimmed) return "";
+
+  // Treat a protocol-relative "//" prefix the same as a bare domain.
+  if (trimmed.startsWith("//")) {
+    trimmed = trimmed.slice(2).trim();
   }
-  return `https://${trimmed}`;
+
+  // Only http/https schemes are trusted as-is. Any other scheme
+  // (mailto:, tel:, javascript:, ftp:, etc.) is stripped off — it's not
+  // appropriate for a GitHub / LinkedIn / Resume / Live Demo field — and
+  // whatever text follows it is re-checked as a bare domain instead.
+  const schemeMatch = trimmed.match(/^([a-z][a-z0-9+.-]*):(\/\/)?(.*)$/i);
+  if (schemeMatch) {
+    const scheme = schemeMatch[1].toLowerCase();
+    if (scheme === "http" || scheme === "https") {
+      return trimmed;
+    }
+    trimmed = (schemeMatch[3] || "").trim();
+    if (!trimmed) return "";
+  }
+
+  const candidate = `https://${trimmed}`;
+
+  // Must resemble a real "domain.tld[/path]" address (e.g.
+  // github.com/username). Rejects anything with a space or an "@" in
+  // the host portion, which is exactly what a plain email address
+  // (e.g. "someone@gmail.com") would otherwise turn into.
+  const looksLikeRealDomain = /^https:\/\/[^\s/@]+\.[^\s/@]+(\/.*)?$/i.test(candidate);
+  return looksLikeRealDomain ? candidate : "";
 };
 // ---------------------------------------------------------------------
 
@@ -181,7 +223,7 @@ const groupSkillsByCategory = (skills) => {
 // footer since only one section is mounted at a time.
 const PageFooter = ({ owner, portfolio, onNavigate }) => {
   const social = portfolio.contact?.socialLinks || {};
-  const hasSocial = Object.values(social).some(Boolean);
+  const hasSocial = Object.values(social).some((val) => val && ensureAbsoluteUrl(val));
 
   return (
     <footer className="border-t border-border mt-8">
@@ -218,18 +260,24 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
           <div>
             <p className="mono text-[10px] text-primary uppercase tracking-widest mb-4">Get In Touch</p>
             {portfolio.contact.email && (
-              <a href={`mailto:${portfolio.contact.email}`} className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all">
+              <a
+                href={getGmailComposeUrl(portfolio.contact.email)}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-sm text-textMuted hover:text-primary transition mb-3 break-all"
+              >
                 {portfolio.contact.email}
               </a>
             )}
             {hasSocial && (
               <div className="flex items-center gap-2">
-                {Object.entries(social).map(
-                  ([key, val]) =>
-                    val && (
+                {Object.entries(social).map(([key, val]) => {
+                  const href = val && ensureAbsoluteUrl(val);
+                  return (
+                    href && (
                       <a
                         key={key}
-                        href={ensureAbsoluteUrl(val)}
+                        href={href}
                         target="_blank"
                         rel="noreferrer"
                         className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-textMuted hover:text-primary hover:border-primary transition"
@@ -237,7 +285,8 @@ const PageFooter = ({ owner, portfolio, onNavigate }) => {
                         {SOCIAL_ICONS[key] || key[0].toUpperCase()}
                       </a>
                     )
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -501,6 +550,31 @@ const toEmbedUrl = (url = "") => {
   return url;
 };
 
+// Returns a real thumbnail image URL for a YouTube video link (used as the
+// project-card cover when the video is the first/only piece of media), or
+// null if the given url isn't a recognizable YouTube link — in which case
+// the caller falls back to showing the actual <video> file as its own cover.
+const getYoutubeThumbnail = (url = "") => {
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
+  return yt ? `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg` : null;
+};
+
+// FIX: mailto: links depend on the visitor's device having a default mail
+// app configured — on machines without one (very common, especially on
+// shared/dev machines or when the browser has no handler registered),
+// clicking a mailto: link silently does nothing useful (e.g. just opens a
+// blank new tab) instead of letting the visitor actually send a message.
+// Every "email me" link in this file now opens Gmail's web compose screen
+// directly instead — this works in any browser, on any device, regardless
+// of what (if anything) is configured as the system's default mail client,
+// and always opens in a new tab so the portfolio itself stays open.
+const getGmailComposeUrl = (email = "", subject = "") => {
+  if (!email) return "";
+  const params = new URLSearchParams({ view: "cm", fs: "1", to: email });
+  if (subject) params.set("su", subject);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+};
+
 // Combines a project's screenshots + demo video into one navigable media
 // array — still used for the project card's cover image + media count
 // badge in the grid (NOT for the detail page anymore, which shows
@@ -570,6 +644,45 @@ const TiltCard = ({ children, className, delay = 0 }) => {
     >
       {children}
     </motion.div>
+  );
+};
+
+// Cover-video: plays muted/looped as the project card's cover image (in
+// place of a static screenshot) whenever a video happens to be the first
+// piece of media the admin uploaded for that project. Pauses itself when
+// scrolled out of view so idle cards on a long project grid don't keep
+// decoding video in the background.
+const CoverVideo = ({ src, className }) => {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.play().catch(() => {});
+        } else {
+          el.pause();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      className={className}
+      muted
+      loop
+      playsInline
+      autoPlay
+      preload="metadata"
+    />
   );
 };
 
@@ -734,7 +847,8 @@ const Portfolio = ({ slugProp }) => {
       key: "email",
       label: "Email",
       value: portfolio.contact.email,
-      href: `mailto:${portfolio.contact.email}`,
+      href: getGmailComposeUrl(portfolio.contact.email),
+      external: true,
       icon: <Mail className="w-4 h-4" />,
     },
     portfolio.contact.phone && {
@@ -751,7 +865,9 @@ const Portfolio = ({ slugProp }) => {
       icon: <MapPin className="w-4 h-4" />,
     },
   ].filter(Boolean);
-  const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(([, val]) => Boolean(val));
+  const socialEntries = Object.entries(portfolio.contact.socialLinks || {}).filter(
+    ([, val]) => val && ensureAbsoluteUrl(val)
+  );
 
   // Opens the full-page project detail view (replaces the old modal lightbox).
   const openProjectPage = (project) => {
@@ -811,7 +927,7 @@ const Portfolio = ({ slugProp }) => {
             </nav>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              {portfolio.hero.githubLink && (
+              {portfolio.hero.githubLink && ensureAbsoluteUrl(portfolio.hero.githubLink) && (
                 <a
                   href={ensureAbsoluteUrl(portfolio.hero.githubLink)}
                   target="_blank"
@@ -822,7 +938,7 @@ const Portfolio = ({ slugProp }) => {
                   {SOCIAL_ICONS.github}
                 </a>
               )}
-              {portfolio.hero.resumeLink && (
+              {portfolio.hero.resumeLink && ensureAbsoluteUrl(portfolio.hero.resumeLink) && (
                 <a
                   href={ensureAbsoluteUrl(portfolio.hero.resumeLink)}
                   target="_blank"
@@ -1238,7 +1354,12 @@ const Portfolio = ({ slugProp }) => {
                             </span>
                             <div className="min-w-0">
                               <p className="text-[10px] mono text-textMuted uppercase tracking-widest">Email</p>
-                              <a href={`mailto:${portfolio.contact.email}`} className="text-sm text-primary font-medium hover:underline break-all">
+                              <a
+                                href={getGmailComposeUrl(portfolio.contact.email)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-primary font-medium hover:underline break-all"
+                              >
                                 {portfolio.contact.email}
                               </a>
                             </div>
@@ -1423,7 +1544,15 @@ const Portfolio = ({ slugProp }) => {
                     <AnimatePresence mode="popLayout">
                       {filteredProjects.map((p, i) => {
                         const media = getProjectMedia(p);
+                        // The cover is whatever media item was added FIRST — could be
+                        // a screenshot or the demo video. If it's a real video file,
+                        // it plays inline (muted/looped) as the cover itself instead
+                        // of a static placeholder. If it's a YouTube/embed link, its
+                        // real thumbnail is used as the cover image instead.
                         const cover = media[0];
+                        const coverIsPlayableVideo = cover?.type === "video" && isVideoFile(cover.src);
+                        const coverYoutubeThumb = cover?.type === "video" && !coverIsPlayableVideo ? getYoutubeThumbnail(cover.src) : null;
+
                         return (
                           <TiltCard
                             key={`${p.title}-${i}`}
@@ -1451,7 +1580,41 @@ const Portfolio = ({ slugProp }) => {
                               className="relative block w-full aspect-video overflow-hidden bg-surfaceAlt"
                             >
                               {cover ? (
-                                cover.type === "video" ? (
+                                coverIsPlayableVideo ? (
+                                  <>
+                                    {/* Blurred backdrop copy of the video fills the frame,
+                                        same treatment as the image cover, so the real
+                                        video can sit fully inside without being cropped. */}
+                                    <CoverVideo
+                                      src={cover.src}
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <CoverVideo
+                                      src={cover.src}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                    <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-black/55 text-white backdrop-blur">
+                                      <PlayCircle className="w-4 h-4" />
+                                    </span>
+                                  </>
+                                ) : coverYoutubeThumb ? (
+                                  <>
+                                    <img
+                                      src={coverYoutubeThumb}
+                                      alt=""
+                                      aria-hidden="true"
+                                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40 saturate-150"
+                                    />
+                                    <img
+                                      src={coverYoutubeThumb}
+                                      alt={p.title}
+                                      className="relative w-full h-full object-contain group-hover:scale-[1.04] transition duration-500 ease-out"
+                                    />
+                                    <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-black/55 text-white backdrop-blur">
+                                      <PlayCircle className="w-4 h-4" />
+                                    </span>
+                                  </>
+                                ) : cover.type === "video" ? (
                                   <div className="w-full h-full flex items-center justify-center text-primary bg-gradient-to-br from-primary/10 to-accent/10">
                                     <PlayCircle className="w-10 h-10" />
                                   </div>
@@ -1526,7 +1689,7 @@ const Portfolio = ({ slugProp }) => {
                                 >
                                   <Eye className="w-3.5 h-3.5" /> View Details
                                 </button>
-                                {p.liveLink && (
+                                {p.liveLink && ensureAbsoluteUrl(p.liveLink) && (
                                   <a
                                     href={ensureAbsoluteUrl(p.liveLink)}
                                     target="_blank"
@@ -1537,7 +1700,7 @@ const Portfolio = ({ slugProp }) => {
                                     <ExternalLink className="w-3.5 h-3.5" /> Live Demo
                                   </a>
                                 )}
-                                {p.githubLink && (
+                                {p.githubLink && ensureAbsoluteUrl(p.githubLink) && (
                                   <a
                                     href={ensureAbsoluteUrl(p.githubLink)}
                                     target="_blank"
@@ -1589,9 +1752,9 @@ const Portfolio = ({ slugProp }) => {
                       <h1 className="font-display text-3xl md:text-4xl font-bold leading-tight">{selectedProject.title}</h1>
                     </div>
 
-                    {(selectedProject.liveLink || selectedProject.githubLink) && (
+                    {(ensureAbsoluteUrl(selectedProject.liveLink || "") || ensureAbsoluteUrl(selectedProject.githubLink || "")) && (
                       <div className="flex flex-wrap items-center gap-3 shrink-0">
-                        {selectedProject.liveLink && (
+                        {selectedProject.liveLink && ensureAbsoluteUrl(selectedProject.liveLink) && (
                           <a
                             href={ensureAbsoluteUrl(selectedProject.liveLink)}
                             target="_blank"
@@ -1601,7 +1764,7 @@ const Portfolio = ({ slugProp }) => {
                             <ExternalLink className="w-4 h-4" /> Live Demo
                           </a>
                         )}
-                        {selectedProject.githubLink && (
+                        {selectedProject.githubLink && ensureAbsoluteUrl(selectedProject.githubLink) && (
                           <a
                             href={ensureAbsoluteUrl(selectedProject.githubLink)}
                             target="_blank"
@@ -1984,7 +2147,11 @@ const Portfolio = ({ slugProp }) => {
                         </span>
                         <p className="relative text-[10px] mono text-textMuted uppercase tracking-widest mb-1.5">{c.label}</p>
                         {c.href ? (
-                          <a href={c.href} className="relative block text-sm text-primary font-medium hover:underline break-all">
+                          <a
+                            href={c.href}
+                            {...(c.external ? { target: "_blank", rel: "noreferrer" } : {})}
+                            className="relative block text-sm text-primary font-medium hover:underline break-all"
+                          >
                             {c.value}
                           </a>
                         ) : (
@@ -2011,13 +2178,15 @@ const Portfolio = ({ slugProp }) => {
                   <div className="relative flex flex-wrap items-center justify-center gap-3">
                     {portfolio.contact.email && (
                       <a
-                        href={`mailto:${portfolio.contact.email}`}
+                        href={getGmailComposeUrl(portfolio.contact.email)}
+                        target="_blank"
+                        rel="noreferrer"
                         className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-medium shadow-[0_10px_30px_-10px_var(--color-primary)] hover:shadow-[0_14px_36px_-8px_var(--color-primary)] hover:-translate-y-0.5 transition-all"
                       >
                         <Mail className="w-4 h-4" /> Say Hello
                       </a>
                     )}
-                    {portfolio.hero.resumeLink && (
+                    {portfolio.hero.resumeLink && ensureAbsoluteUrl(portfolio.hero.resumeLink) && (
                       <a
                         href={ensureAbsoluteUrl(portfolio.hero.resumeLink)}
                         target="_blank"

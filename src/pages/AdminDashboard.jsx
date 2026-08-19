@@ -303,23 +303,28 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
       // That mismatch is exactly why the same URL plays in Chrome but shows
       // "No video with supported format and MIME type found" in Firefox.
       //
-      // NOTE: an earlier version of this also hard-locked the profile/level
-      // to `vc_h264:baseline:3.1`. That was too aggressive - Baseline Level
-      // 3.1 caps out around 720p, so for any source recorded at a higher
-      // resolution/bitrate (very common for phone videos) Cloudinary could
-      // not satisfy that transformation at all and returned an error instead
-      // of a video - which is why it then broke in Chrome too. So the
-      // profile/level constraint has been removed; only the codecs are
-      // pinned, which is enough to fix Firefox without breaking Chrome:
-      //   - vc_h264       -> force H.264 video (browser-universal, no forced
-      //                      profile/level so Cloudinary can pick one that
-      //                      actually fits the source resolution/bitrate)
-      //   - ac_aac        -> force AAC audio (universally supported; this is
-      //                      the actual fix for the Firefox-only failure)
-      //   - fl_faststart  -> move the MP4 "moov" atom to the front of the
-      //                      file so playback can start before the whole
-      //                      file has downloaded
-      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264,ac_aac,fl_faststart/${cloudData.public_id}.mp4`;
+      // NOTE: two earlier attempts at this transformation both caused
+      // Cloudinary to reject the request outright (400 Bad Request),
+      // which is why the video stopped playing in EVERY browser, not
+      // just Firefox:
+      //   1. `vc_h264:baseline:3.1` hard-locked the profile/level - Baseline
+      //      Level 3.1 caps out around 720p, so higher-resolution/bitrate
+      //      source videos (very common for phone recordings) couldn't be
+      //      satisfied by that transformation at all.
+      //   2. `fl_faststart` is NOT a real Cloudinary flag (confirmed via the
+      //      `X-Cld-Error: Invalid flag in transformation: faststart`
+      //      response header) - Cloudinary already serves MP4s web-optimized
+      //      (moov atom up front) by default, so this flag was both wrong
+      //      and unnecessary.
+      // Only the two codecs are pinned now - this is what actually fixes
+      // Firefox (which strictly rejects non-AAC audio tracks) without
+      // over-constraining the video and breaking Chrome:
+      //   - vc_h264  -> force H.264 video (universal browser support, no
+      //                 forced profile/level so Cloudinary can pick one that
+      //                 actually fits the source resolution/bitrate)
+      //   - ac_aac   -> force AAC audio (universally supported; this is the
+      //                 actual fix for the Firefox-only playback failure)
+      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264,ac_aac/${cloudData.public_id}.mp4`;
       return playableUrl;
     }
 

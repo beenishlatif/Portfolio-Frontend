@@ -260,7 +260,7 @@ const AdminDashboard = () => {
   // Requires an UNSIGNED upload preset in your Cloudinary dashboard:
   // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
   const CLOUDINARY_CLOUD_NAME = "dusj3szjo";
-  const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
+const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
   const uploadFile = async (file) => {
     const isVideo = file.type.startsWith("video/");
 
@@ -282,8 +282,6 @@ const AdminDashboard = () => {
 
       const cloudData = await res.json();
 
-      // FIX (Chrome-only playback -> now plays in Firefox, Safari, Edge too):
-      //
       // Phone-recorded videos are often .mov (H.265/HEVC) which most browsers
       // can't play natively in a <video> tag - "No video with supported
       // format and MIME type found" is exactly that error. secure_url alone
@@ -292,38 +290,8 @@ const AdminDashboard = () => {
       // sees ".mov" and gives up before even asking Cloudinary to transcode.
       // So we rebuild the delivery URL from public_id with an explicit
       // ".mp4" extension, which forces Cloudinary to actually deliver
-      // browser-playable bytes regardless of the source format.
-      //
-      // The old transformation string was just "q_auto,vc_h264" - that
-      // re-encodes the VIDEO track to H.264, but:
-      //   1. It left Cloudinary free to pick ANY H.264 profile (often
-      //      "High" profile for smaller file size). Chrome's decoder is very
-      //      lenient and plays almost any H.264 profile. Firefox's decoder
-      //      is much stricter and can reject certain High-profile streams,
-      //      especially ones with B-frames/reference-frame settings that
-      //      came from a phone-recorded source - so the exact same MP4 URL
-      //      played in Chrome and silently failed (blank/frozen player) in
-      //      Firefox.
-      //   2. It never touched the AUDIO track. Phone videos frequently use
-      //      audio codecs (e.g. AMR-NB, or unusual AAC profiles) that
-      //      Chrome's more permissive demuxer tolerates but Firefox's does
-      //      not - Firefox can refuse to play the whole file over just the
-      //      audio track being something it doesn't recognize.
-      //
-      // Fix: force BOTH tracks to the most universally-supported settings -
-      //   - vc_h264:baseline:3.1  -> H.264 Baseline profile, level 3.1.
-      //     Baseline is the lowest-common-denominator H.264 profile that
-      //     literally every browser/device decoder (Chrome, Firefox,
-      //     Safari, Edge, old Android/iOS) supports without exception.
-      //   - ac_aac                -> forces standard AAC audio, which every
-      //     browser's MP4 demuxer understands, instead of whatever audio
-      //     codec the original phone recording happened to use.
-      //   - fl_faststart          -> moves the MP4 "moov atom" (metadata)
-      //     to the front of the file so browsers can start playing
-      //     immediately/reliably during progressive download instead of
-      //     needing to buffer/seek to the end first - Firefox in particular
-      //     is stricter about wanting this than Chrome.
-      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264:baseline:3.1,ac_aac,fl_faststart/${cloudData.public_id}.mp4`;
+      // browser-playable H.264 MP4 bytes regardless of the source format.
+      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264/${cloudData.public_id}.mp4`;
       return playableUrl;
     }
 
@@ -844,18 +812,12 @@ const AdminDashboard = () => {
                       />
                     </label>
 
-                    {/* Demo Video - gallery picker + caption.
-                        Preview here uses <source type="video/mp4" /> instead of a
-                        bare src attribute, same cross-browser fix as the public
-                        portfolio page — keeps this admin-side preview reliable in
-                        Firefox as well. */}
+                    {/* Demo Video - gallery picker + caption */}
                     <label className={labelClass}>Demo Video</label>
                     {p.video?.url ? (
                       <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
                         <div className="relative shrink-0 w-28 h-20 rounded-lg overflow-hidden border border-border bg-surfaceAlt flex items-center justify-center">
-                          <video className="w-full h-full object-cover" muted preload="metadata" crossOrigin="anonymous">
-                            <source src={p.video.url} type="video/mp4" />
-                          </video>
+                          <video src={p.video.url} className="w-full h-full object-cover" muted />
                           <PlayCircle className="w-6 h-6 text-white absolute" />
                         </div>
                         <div className="flex-1 min-w-0">

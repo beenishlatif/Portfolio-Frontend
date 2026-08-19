@@ -652,17 +652,6 @@ const TiltCard = ({ children, className, delay = 0 }) => {
 // piece of media the admin uploaded for that project. Pauses itself when
 // scrolled out of view so idle cards on a long project grid don't keep
 // decoding video in the background.
-//
-// FIX (cross-browser playback — was Chrome-only, wouldn't play in Firefox):
-// This previously rendered <video src={src} .../>. Firefox is much
-// stricter than Chrome about trusting a bare `src` attribute without an
-// explicit MIME type — if Firefox can't quickly confirm the container/codec
-// from just the URL, it silently refuses to play instead of falling back
-// the way Chrome does. Using an explicit <source src=... type="video/mp4" />
-// child tells every browser exactly what it's getting, so Firefox (and
-// Safari) load it the same way Chrome does. crossOrigin="anonymous" is
-// also set since the video is served cross-origin from Cloudinary, and
-// Firefox is stricter about cross-origin media metadata than Chrome.
 const CoverVideo = ({ src, className }) => {
   const videoRef = useRef(null);
 
@@ -686,16 +675,14 @@ const CoverVideo = ({ src, className }) => {
   return (
     <video
       ref={videoRef}
+      src={src}
       className={className}
       muted
       loop
       playsInline
       autoPlay
       preload="metadata"
-      crossOrigin="anonymous"
-    >
-      <source src={src} type="video/mp4" />
-    </video>
+    />
   );
 };
 
@@ -1816,13 +1803,7 @@ const Portfolio = ({ slugProp }) => {
                   </Reveal>
                 )}
 
-                {/* Demo Video — its own dedicated section, separate from screenshots.
-                    FIX: same cross-browser issue as CoverVideo above — a plain
-                    <video src={...} controls /> played fine in Chrome but silently
-                    failed in Firefox because Firefox needs an explicit MIME type via
-                    a <source type="video/mp4" /> child instead of just a bare src
-                    attribute. crossOrigin="anonymous" added for the same
-                    cross-origin-Cloudinary reason as CoverVideo. */}
+                {/* Demo Video — its own dedicated section, separate from screenshots */}
                 {selectedProject.video?.url && (
                   <Reveal delay={0.15} className="mb-10">
                     <div className="flex items-center gap-2 mb-4">
@@ -1831,16 +1812,7 @@ const Portfolio = ({ slugProp }) => {
                     </div>
                     <div className="rounded-2xl overflow-hidden border border-border bg-black">
                       {isVideoFile(selectedProject.video.url) ? (
-                        <video
-                          controls
-                          playsInline
-                          preload="metadata"
-                          crossOrigin="anonymous"
-                          className="w-full max-h-[65vh] bg-black"
-                        >
-                          <source src={selectedProject.video.url} type="video/mp4" />
-                          Your browser does not support this video.
-                        </video>
+                        <video src={selectedProject.video.url} controls className="w-full max-h-[65vh] bg-black" />
                       ) : (
                         <iframe
                           src={toEmbedUrl(selectedProject.video.url)}

@@ -97,75 +97,6 @@ const emptyProject = {
   featured: false,
 };
 
-// ---------------------------------------------------------------------
-// FIX: a "blob:" URL (e.g. "blob:https://your-site.vercel.app/uuid...")
-// is a temporary, browser-generated reference that only ever resolves in
-// the exact tab/session that created it - see the big comment above
-// `videoPreviewUrls` below for the full explanation of why one should
-// never end up in `form`. If one is EVER found in data loaded back from
-// the backend (most likely because it was saved before this app had its
-// blob: safety-net in place), it is permanently broken - it can never be
-// played on any future page load, by anyone, in any browser. There is no
-// way to "fix" it automatically; the only real fix is re-uploading the
-// video. This helper is used on load() to detect + clear that case so
-// the admin sees an empty "Demo Video" picker (instead of a UI that looks
-// like a video is attached but silently never plays) and knows exactly
-// what to do.
-const isBlobUrl = (url = "") => /^blob:/i.test((url || "").trim());
-// ---------------------------------------------------------------------
-
-// ---------------------------------------------------------------------
-// FIX (root cause of "new video upload nahi dikhti, purani videos hi
-// show hoti hain"): the playable video URL built in uploadFile() below
-// is an on-the-fly Cloudinary TRANSFORMATION url (q_auto,vc_h264,ac_aac).
-// Cloudinary does NOT pre-generate that transformed .mp4 at upload time -
-// it generates it lazily, in the background, the FIRST time that exact
-// URL is actually requested. For anything but a tiny clip this can take
-// anywhere from a couple of seconds to well over a minute (it's a real
-// video transcode, not a cache lookup).
-//
-// Previously, uploadFile() returned that URL to the caller IMMEDIATELY
-// after the raw upload finished, and the caller (handleVideoSelect) put
-// it straight into `form`, which the <video> tag in this file - and the
-// public Portfolio page - then tried to load right away. At that point
-// the transformation was often still processing, so the very first
-// request for it came back incomplete/erroring, and a plain <video> tag
-// never retries a failed source on its own. Net effect: the URL was
-// "burned" as broken the moment it was first rendered, and only started
-// working (eventually, from Cloudinary's cache) much later - which is
-// exactly why OLD videos (transformed ages ago, now served instantly
-// from cache) play fine, while a video you JUST uploaded appears to not
-// show up at all.
-//
-// FIX: after building the transformation URL, actively poll it (a cheap
-// ranged GET) until Cloudinary actually returns the finished file, and
-// only THEN resolve uploadFile()'s promise. This means the URL that ever
-// reaches `form` / the database is guaranteed to already be playable -
-// the admin just sees "Processing video..." for a bit longer instead of
-// a silently broken video later.
-const waitForCloudinaryVideoReady = async (url, { maxAttempts = 30, intervalMs = 3000 } = {}) => {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      // A tiny ranged request is enough to know whether Cloudinary has
-      // finished transcoding - no need to download the whole video just
-      // to check readiness.
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Range: "bytes=0-1" },
-        cache: "no-store",
-      });
-      if (res.ok || res.status === 206) return true;
-    } catch (_err) {
-      // Network hiccup / still processing - just retry.
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-  // Give up waiting after maxAttempts - return the URL anyway rather than
-  // blocking the admin forever; it will typically finish shortly after.
-  return false;
-};
-// ---------------------------------------------------------------------
-
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -180,23 +111,6 @@ const AdminDashboard = () => {
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
 
-  // Tracks the sub-stage of a video upload so the UI can show a more
-  // accurate message: "uploading" (raw file going to Cloudinary) vs
-  // "processing" (waiting for the h264/aac transformation to be ready).
-  const [videoUploadStage, setVideoUploadStage] = useState({});
-
-  // Temporary LOCAL preview URLs (blob:) shown while a video is uploading,
-  // keyed by project index. Kept completely separate from `form` on purpose:
-  // blob: URLs only work inside the browser tab/session that created them -
-  // if one is ever written into `form.projects[i].video.url` and the user
-  // clicks "Save Changes" before the real Cloudinary upload finishes, that
-  // useless blob: URL gets persisted to the database. On any later page load
-  // (e.g. the public portfolio) that URL can never resolve, which is exactly
-  // what caused the "Firefox can't connect to the server" error inside the
-  // video/iframe box. Keeping previews in their own state means the real
-  // `form` never contains a blob: URL, so Save can never persist one.
-  const [videoPreviewUrls, setVideoPreviewUrls] = useState({});
-
   // --- Upload state for the hero profile image gallery picker ---
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
 
@@ -207,28 +121,6 @@ const AdminDashboard = () => {
     const load = async () => {
       try {
         const { data } = await api.get("/portfolio/me");
-
-        // Tracks whether any project's saved video turned out to be a
-        // permanently-broken blob: URL (see isBlobUrl above), so we can
-        // tell the admin about it after the form is populated.
-        let hadStaleBlobVideo = false;
-
-        const cleanedProjects = (data.projects || []).map((p) => {
-          const merged = {
-            ...emptyProject,
-            ...p,
-            screenshots: p.screenshots || [],
-            video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
-          };
-
-          if (merged.video?.url && isBlobUrl(merged.video.url)) {
-            hadStaleBlobVideo = true;
-            merged.video = { url: "", caption: merged.video.caption || "" };
-          }
-
-          return merged;
-        });
-
         setForm({
           ...emptyPortfolio,
           ...data,
@@ -240,17 +132,16 @@ const AdminDashboard = () => {
             socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
           },
           skills: data.skills || [],
-          projects: cleanedProjects,
+          projects: (data.projects || []).map((p) => ({
+            ...emptyProject,
+            ...p,
+            screenshots: p.screenshots || [],
+            video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
+          })),
           experience: data.experience || [],
           education: data.education || [],
           techStack: data.techStack || [],
         });
-
-        if (hadStaleBlobVideo) {
-          setMessage(
-            "Ek ya zyada projects ka demo video corrupt (blob URL) tha isliye clear kar diya gaya hai - Projects tab mein jaa kar wo video dobara upload kar dein aur Save Changes dabayein."
-          );
-        }
       } catch (err) {
         setMessage("Could not load your portfolio data.");
       } finally {
@@ -269,25 +160,7 @@ const AdminDashboard = () => {
     setSaving(true);
     setMessage("");
     try {
-      // Safety net: never let a blob: URL (a local, session-only preview
-      // reference) reach the backend. This should not normally happen since
-      // previews now live in separate `videoPreviewUrls` state instead of in
-      // `form`, but this guard makes it impossible even if a future change
-      // reintroduces the mistake - a saved blob: URL is useless (and breaks
-      // playback with a "can't connect to server" error) on every page load
-      // other than the exact tab that created it.
-      const sanitizedForm = {
-        ...form,
-        projects: (form.projects || []).map((p) => ({
-          ...p,
-          video:
-            p.video?.url && isBlobUrl(p.video.url)
-              ? { ...p.video, url: "" }
-              : p.video,
-        })),
-      };
-
-      const { data } = await api.put("/portfolio/me", sanitizedForm);
+      const { data } = await api.put("/portfolio/me", form);
       setForm({
         ...emptyPortfolio,
         ...data,
@@ -388,13 +261,11 @@ const AdminDashboard = () => {
   // Settings -> Upload -> Add upload preset -> Signing Mode: Unsigned.
   const CLOUDINARY_CLOUD_NAME = "dusj3szjo";
 const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mein diya
-  const uploadFile = async (file, { onStageChange } = {}) => {
+  const uploadFile = async (file) => {
     const isVideo = file.type.startsWith("video/");
 
     // Videos: go straight to Cloudinary, bypassing the backend/Vercel body-size limit
     if (isVideo) {
-      onStageChange?.("uploading");
-
       const cloudForm = new FormData();
       cloudForm.append("file", file);
       cloudForm.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -406,12 +277,7 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        const detail = errData?.error?.message || `Upload failed (status ${res.status})`;
-        // Log the full Cloudinary error response to the console so the real
-        // cause (wrong preset, file too large, wrong resource type, etc.) is
-        // visible instead of being swallowed into a generic message.
-        console.error("Cloudinary video upload failed:", detail, errData);
-        throw new Error(detail);
+        throw new Error(errData.error?.message || "Video upload failed");
       }
 
       const cloudData = await res.json();
@@ -425,31 +291,7 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
       // So we rebuild the delivery URL from public_id with an explicit
       // ".mp4" extension, which forces Cloudinary to actually deliver
       // browser-playable H.264 MP4 bytes regardless of the source format.
-      //
-      // Only the two codecs are pinned now - vc_h264 (video, universal
-      // browser support) and ac_aac (audio, fixes Firefox strictly
-      // rejecting non-AAC audio tracks) - without over-constraining the
-      // video and breaking playback in other browsers.
-      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264,ac_aac/${cloudData.public_id}.mp4`;
-
-      // -----------------------------------------------------------------
-      // FIX: this transformation URL is generated by Cloudinary LAZILY -
-      // on the very first request for it - not at upload time. For any
-      // video beyond a few seconds long, that first-time transcode can
-      // take several seconds to well over a minute. Returning the URL
-      // immediately (as before) meant the <video> tag tried to load it
-      // while it was still processing, got an incomplete/failed response,
-      // and never retried - so the video looked "not uploaded" even
-      // though it was, while OLDER videos (already transformed and cached
-      // by Cloudinary from a previous load) kept working fine.
-      //
-      // Waiting here means uploadFile() only resolves once the URL is
-      // actually confirmed playable, so it's always safe to hand straight
-      // to a <video> tag / save to the database.
-      // -----------------------------------------------------------------
-      onStageChange?.("processing");
-      await waitForCloudinaryVideoReady(playableUrl);
-
+      const playableUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/q_auto,vc_h264/${cloudData.public_id}.mp4`;
       return playableUrl;
     }
 
@@ -503,58 +345,18 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
 
   const handleVideoSelect = async (index, file) => {
     if (!file) return;
-
-    // Soft client-side size warning. Cloudinary's free-plan unsigned upload
-    // limit is commonly around 100MB per file - uploading something larger
-    // will fail at the Cloudinary API step with a clear (but easy-to-miss)
-    // error. Warning here up front saves a silent multi-minute failed upload.
-    const MAX_RECOMMENDED_MB = 100;
-    if (file.size > MAX_RECOMMENDED_MB * 1024 * 1024) {
-      setMessage(
-        `Video ${(file.size / (1024 * 1024)).toFixed(1)}MB ki he - ${MAX_RECOMMENDED_MB}MB se badi videos free Cloudinary plan par upload fail ho sakti hain. Chhoti video try karein.`
-      );
-    }
-
-    // Show an INSTANT local preview (from the file itself, before any network
-    // request) so the gallery never looks like "nothing happened" while the
-    // upload is in progress. IMPORTANT: this preview lives in its own
-    // `videoPreviewUrls` state, NOT in `form` - see the state declaration
-    // above for why writing a blob: URL into `form` is unsafe.
-    const localPreviewUrl = URL.createObjectURL(file);
-    setVideoPreviewUrls((prev) => ({ ...prev, [index]: localPreviewUrl }));
-
     setUploadingVideo((prev) => ({ ...prev, [index]: true }));
-    setVideoUploadStage((prev) => ({ ...prev, [index]: "uploading" }));
-    setMessage("");
     try {
-      const url = await uploadFile(file, {
-        onStageChange: (stage) => setVideoUploadStage((prev) => ({ ...prev, [index]: stage })),
-      });
-      // At this point uploadFile() has already confirmed the transformed
-      // URL is actually playable (see waitForCloudinaryVideoReady above),
-      // so it's safe to store it in `form` right away.
+      const url = await uploadFile(file);
       setForm((prev) => {
         const list = [...prev.projects];
         list[index] = { ...list[index], video: { url, caption: list[index].video?.caption || "" } };
         return { ...prev, projects: list };
       });
     } catch (err) {
-      // Surface the REAL reason instead of a generic message.
-      console.error("Video upload failed:", err);
-      setMessage(`Video upload nahi ho saki: ${err.message || "Unknown error"}`);
+      setMessage("Video upload failed.");
     } finally {
-      URL.revokeObjectURL(localPreviewUrl);
-      setVideoPreviewUrls((prev) => {
-        const next = { ...prev };
-        delete next[index];
-        return next;
-      });
       setUploadingVideo((prev) => ({ ...prev, [index]: false }));
-      setVideoUploadStage((prev) => {
-        const next = { ...prev };
-        delete next[index];
-        return next;
-      });
     }
   };
 
@@ -737,11 +539,10 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
           <h1 className="font-display text-2xl font-semibold capitalize">{tab} Section</h1>
           <button
             onClick={save}
-            disabled={saving || Object.values(uploadingVideo).some(Boolean)}
-            title={Object.values(uploadingVideo).some(Boolean) ? "Video upload complete hone ka wait karein" : undefined}
+            disabled={saving}
             className="px-5 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition disabled:opacity-60 shadow-sm"
           >
-            {Object.values(uploadingVideo).some(Boolean) ? "Uploading video..." : saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
@@ -1011,52 +812,30 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
                       />
                     </label>
 
-                    {/* Demo Video - gallery picker + caption.
-                        While an upload is in progress for this project, show
-                        the local blob: preview from `videoPreviewUrls` -
-                        NEVER from `form`, so an in-progress upload can never
-                        end up saved as a broken blob: URL (see save() and
-                        handleVideoSelect() for why). */}
+                    {/* Demo Video - gallery picker + caption */}
                     <label className={labelClass}>Demo Video</label>
-                    {p.video?.url || videoPreviewUrls[i] ? (
+                    {p.video?.url ? (
                       <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
                         <div className="relative shrink-0 w-28 h-20 rounded-lg overflow-hidden border border-border bg-surfaceAlt flex items-center justify-center">
-                          <video src={p.video?.url || videoPreviewUrls[i]} className="w-full h-full object-cover" muted />
-                          {uploadingVideo[i] ? (
-                            <span className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-[10px] mono text-center px-1">
-                              {videoUploadStage[i] === "processing" ? "Processing..." : "Uploading..."}
-                            </span>
-                          ) : (
-                            <PlayCircle className="w-6 h-6 text-white absolute" />
-                          )}
+                          <video src={p.video.url} className="w-full h-full object-cover" muted />
+                          <PlayCircle className="w-6 h-6 text-white absolute" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          {p.video?.url && !uploadingVideo[i] && (
-                            <>
-                              <input
-                                placeholder="Short description for this video (optional)"
-                                className={inputClass}
-                                value={p.video.caption || ""}
-                                onChange={(e) => updateVideoCaption(i, e.target.value)}
-                              />
-                              <button onClick={() => removeVideo(i)} className="text-xs text-red-400 mt-2 hover:underline flex items-center gap-1">
-                                <X className="w-3 h-3" /> Remove video
-                              </button>
-                            </>
-                          )}
-                          {uploadingVideo[i] && (
-                            <p className="text-xs text-textMuted">
-                              {videoUploadStage[i] === "processing"
-                                ? "Video Cloudinary par process ho rahi hai, please wait... (bade videos ke liye ye 1-2 minute tak lag sakta hai)"
-                                : "Uploading to Cloudinary, please wait..."}
-                            </p>
-                          )}
+                          <input
+                            placeholder="Short description for this video (optional)"
+                            className={inputClass}
+                            value={p.video.caption || ""}
+                            onChange={(e) => updateVideoCaption(i, e.target.value)}
+                          />
+                          <button onClick={() => removeVideo(i)} className="text-xs text-red-400 mt-2 hover:underline flex items-center gap-1">
+                            <X className="w-3 h-3" /> Remove video
+                          </button>
                         </div>
                       </div>
                     ) : (
                       <label className={galleryBtnClass}>
                         <VideoIcon className="w-3.5 h-3.5" />
-                        Choose Video from Gallery
+                        {uploadingVideo[i] ? "Uploading..." : "Choose Video from Gallery"}
                         <input
                           type="file"
                           accept="video/*"

@@ -111,6 +111,18 @@ const AdminDashboard = () => {
   const [uploadingScreenshots, setUploadingScreenshots] = useState({});
   const [uploadingVideo, setUploadingVideo] = useState({});
 
+  // Temporary LOCAL preview URLs (blob:) shown while a video is uploading,
+  // keyed by project index. Kept completely separate from `form` on purpose:
+  // blob: URLs only work inside the browser tab/session that created them -
+  // if one is ever written into `form.projects[i].video.url` and the user
+  // clicks "Save Changes" before the real Cloudinary upload finishes, that
+  // useless blob: URL gets persisted to the database. On any later page load
+  // (e.g. the public portfolio) that URL can never resolve, which is exactly
+  // what caused the "Firefox can't connect to the server" error inside the
+  // video/iframe box. Keeping previews in their own state means the real
+  // `form` never contains a blob: URL, so Save can never persist one.
+  const [videoPreviewUrls, setVideoPreviewUrls] = useState({});
+
   // --- Upload state for the hero profile image gallery picker ---
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
 
@@ -160,7 +172,25 @@ const AdminDashboard = () => {
     setSaving(true);
     setMessage("");
     try {
-      const { data } = await api.put("/portfolio/me", form);
+      // Safety net: never let a blob: URL (a local, session-only preview
+      // reference) reach the backend. This should not normally happen since
+      // previews now live in separate `videoPreviewUrls` state instead of in
+      // `form`, but this guard makes it impossible even if a future change
+      // reintroduces the mistake - a saved blob: URL is useless (and breaks
+      // playback with a "can't connect to server" error) on every page load
+      // other than the exact tab that created it.
+      const sanitizedForm = {
+        ...form,
+        projects: (form.projects || []).map((p) => ({
+          ...p,
+          video:
+            p.video?.url && p.video.url.startsWith("blob:")
+              ? { ...p.video, url: "" }
+              : p.video,
+        })),
+      };
+
+      const { data } = await api.put("/portfolio/me", sanitizedForm);
       setForm({
         ...emptyPortfolio,
         ...data,
@@ -397,17 +427,11 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
 
     // Show an INSTANT local preview (from the file itself, before any network
     // request) so the gallery never looks like "nothing happened" while the
-    // upload is in progress - this was the main cause of "video select karne
-    // ke baad kuch show nahi hota".
+    // upload is in progress. IMPORTANT: this preview lives in its own
+    // `videoPreviewUrls` state, NOT in `form` - see the state declaration
+    // above for why writing a blob: URL into `form` is unsafe.
     const localPreviewUrl = URL.createObjectURL(file);
-    setForm((prev) => {
-      const list = [...prev.projects];
-      list[index] = {
-        ...list[index],
-        video: { url: localPreviewUrl, caption: list[index].video?.caption || "" },
-      };
-      return { ...prev, projects: list };
-    });
+    setVideoPreviewUrls((prev) => ({ ...prev, [index]: localPreviewUrl }));
 
     setUploadingVideo((prev) => ({ ...prev, [index]: true }));
     setMessage("");
@@ -419,17 +443,16 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
         return { ...prev, projects: list };
       });
     } catch (err) {
-      // Surface the REAL reason instead of a generic message, and revert the
-      // local preview so the picker is available again for a retry.
+      // Surface the REAL reason instead of a generic message.
       console.error("Video upload failed:", err);
       setMessage(`Video upload nahi ho saki: ${err.message || "Unknown error"}`);
-      setForm((prev) => {
-        const list = [...prev.projects];
-        list[index] = { ...list[index], video: { url: "", caption: list[index].video?.caption || "" } };
-        return { ...prev, projects: list };
-      });
     } finally {
       URL.revokeObjectURL(localPreviewUrl);
+      setVideoPreviewUrls((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
       setUploadingVideo((prev) => ({ ...prev, [index]: false }));
     }
   };
@@ -613,10 +636,11 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
           <h1 className="font-display text-2xl font-semibold capitalize">{tab} Section</h1>
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || Object.values(uploadingVideo).some(Boolean)}
+            title={Object.values(uploadingVideo).some(Boolean) ? "Video upload complete hone ka wait karein" : undefined}
             className="px-5 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primaryAlt transition disabled:opacity-60 shadow-sm"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {Object.values(uploadingVideo).some(Boolean) ? "Uploading video..." : saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
@@ -886,30 +910,48 @@ const CLOUDINARY_UPLOAD_PRESET = "portfolio_videos"; // jo naam aapne step 5 mei
                       />
                     </label>
 
-                    {/* Demo Video - gallery picker + caption */}
+                    {/* Demo Video - gallery picker + caption.
+                        While an upload is in progress for this project, show
+                        the local blob: preview from `videoPreviewUrls` -
+                        NEVER from `form`, so an in-progress upload can never
+                        end up saved as a broken blob: URL (see save() and
+                        handleVideoSelect() for why). */}
                     <label className={labelClass}>Demo Video</label>
-                    {p.video?.url ? (
+                    {p.video?.url || videoPreviewUrls[i] ? (
                       <div className="flex items-start gap-3 bg-bg/60 border border-border rounded-xl p-3">
                         <div className="relative shrink-0 w-28 h-20 rounded-lg overflow-hidden border border-border bg-surfaceAlt flex items-center justify-center">
-                          <video src={p.video.url} className="w-full h-full object-cover" muted />
-                          <PlayCircle className="w-6 h-6 text-white absolute" />
+                          <video src={p.video?.url || videoPreviewUrls[i]} className="w-full h-full object-cover" muted />
+                          {uploadingVideo[i] ? (
+                            <span className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-[10px] mono text-center px-1">
+                              Uploading...
+                            </span>
+                          ) : (
+                            <PlayCircle className="w-6 h-6 text-white absolute" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <input
-                            placeholder="Short description for this video (optional)"
-                            className={inputClass}
-                            value={p.video.caption || ""}
-                            onChange={(e) => updateVideoCaption(i, e.target.value)}
-                          />
-                          <button onClick={() => removeVideo(i)} className="text-xs text-red-400 mt-2 hover:underline flex items-center gap-1">
-                            <X className="w-3 h-3" /> Remove video
-                          </button>
+                          {p.video?.url && !uploadingVideo[i] && (
+                            <>
+                              <input
+                                placeholder="Short description for this video (optional)"
+                                className={inputClass}
+                                value={p.video.caption || ""}
+                                onChange={(e) => updateVideoCaption(i, e.target.value)}
+                              />
+                              <button onClick={() => removeVideo(i)} className="text-xs text-red-400 mt-2 hover:underline flex items-center gap-1">
+                                <X className="w-3 h-3" /> Remove video
+                              </button>
+                            </>
+                          )}
+                          {uploadingVideo[i] && (
+                            <p className="text-xs text-textMuted">Uploading to Cloudinary, please wait...</p>
+                          )}
                         </div>
                       </div>
                     ) : (
                       <label className={galleryBtnClass}>
                         <VideoIcon className="w-3.5 h-3.5" />
-                        {uploadingVideo[i] ? "Uploading..." : "Choose Video from Gallery"}
+                        Choose Video from Gallery
                         <input
                           type="file"
                           accept="video/*"

@@ -97,6 +97,23 @@ const emptyProject = {
   featured: false,
 };
 
+// ---------------------------------------------------------------------
+// FIX: a "blob:" URL (e.g. "blob:https://your-site.vercel.app/uuid...")
+// is a temporary, browser-generated reference that only ever resolves in
+// the exact tab/session that created it - see the big comment above
+// `videoPreviewUrls` below for the full explanation of why one should
+// never end up in `form`. If one is EVER found in data loaded back from
+// the backend (most likely because it was saved before this app had its
+// blob: safety-net in place), it is permanently broken - it can never be
+// played on any future page load, by anyone, in any browser. There is no
+// way to "fix" it automatically; the only real fix is re-uploading the
+// video. This helper is used on load() to detect + clear that case so
+// the admin sees an empty "Demo Video" picker (instead of a UI that looks
+// like a video is attached but silently never plays) and knows exactly
+// what to do.
+const isBlobUrl = (url = "") => /^blob:/i.test((url || "").trim());
+// ---------------------------------------------------------------------
+
 const AdminDashboard = () => {
   const { admin, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -133,6 +150,28 @@ const AdminDashboard = () => {
     const load = async () => {
       try {
         const { data } = await api.get("/portfolio/me");
+
+        // Tracks whether any project's saved video turned out to be a
+        // permanently-broken blob: URL (see isBlobUrl above), so we can
+        // tell the admin about it after the form is populated.
+        let hadStaleBlobVideo = false;
+
+        const cleanedProjects = (data.projects || []).map((p) => {
+          const merged = {
+            ...emptyProject,
+            ...p,
+            screenshots: p.screenshots || [],
+            video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
+          };
+
+          if (merged.video?.url && isBlobUrl(merged.video.url)) {
+            hadStaleBlobVideo = true;
+            merged.video = { url: "", caption: merged.video.caption || "" };
+          }
+
+          return merged;
+        });
+
         setForm({
           ...emptyPortfolio,
           ...data,
@@ -144,16 +183,17 @@ const AdminDashboard = () => {
             socialLinks: { ...emptyPortfolio.contact.socialLinks, ...data.contact?.socialLinks },
           },
           skills: data.skills || [],
-          projects: (data.projects || []).map((p) => ({
-            ...emptyProject,
-            ...p,
-            screenshots: p.screenshots || [],
-            video: p.video && typeof p.video === "object" ? p.video : { url: p.video || "", caption: "" },
-          })),
+          projects: cleanedProjects,
           experience: data.experience || [],
           education: data.education || [],
           techStack: data.techStack || [],
         });
+
+        if (hadStaleBlobVideo) {
+          setMessage(
+            "Ek ya zyada projects ka demo video corrupt (blob URL) tha isliye clear kar diya gaya hai - Projects tab mein jaa kar wo video dobara upload kar dein aur Save Changes dabayein."
+          );
+        }
       } catch (err) {
         setMessage("Could not load your portfolio data.");
       } finally {
@@ -184,7 +224,7 @@ const AdminDashboard = () => {
         projects: (form.projects || []).map((p) => ({
           ...p,
           video:
-            p.video?.url && p.video.url.startsWith("blob:")
+            p.video?.url && isBlobUrl(p.video.url)
               ? { ...p.video, url: "" }
               : p.video,
         })),

@@ -135,6 +135,23 @@ const ensureAbsoluteUrl = (url = "") => {
 };
 // ---------------------------------------------------------------------
 
+// ---------------------------------------------------------------------
+// FIX (blob: video URLs breaking on every reload / other browsers):
+// A "blob:" URL (e.g. "blob:https://your-site.vercel.app/uuid...") is a
+// temporary, browser-generated reference to a file that only exists in
+// memory in the EXACT tab/session that created it (see AdminDashboard.jsx
+// for the full upload flow). It can never resolve anywhere else — not in
+// a different tab, not after a refresh, not in a different browser, not
+// for a different visitor. If one is ever found stored as a project's
+// video.url (e.g. saved to the database before this app had its blob:
+// safety-net in the admin dashboard), the ONLY correct behavior is to
+// treat it as if no video was ever added — never attempt to embed it in
+// a <video> tag or an <iframe>, since it will always fail with something
+// like "can't connect to the server". Every place below that reads
+// video.url is guarded with this check.
+const isBlobUrl = (url = "") => /^blob:/i.test((url || "").trim());
+// ---------------------------------------------------------------------
+
 const TechMarquee = ({ items }) => {
   if (!items || items.length === 0) return null;
   const loop = [...items, ...items];
@@ -579,12 +596,20 @@ const getGmailComposeUrl = (email = "", subject = "") => {
 // array — still used for the project card's cover image + media count
 // badge in the grid (NOT for the detail page anymore, which shows
 // screenshots and video as two separate, clearly labeled sections).
+//
+// FIX: a saved video.url that is a "blob:" URL (see isBlobUrl above) is
+// permanently broken data — it can never be played, embedded, or even
+// used as a valid cover source. It is deliberately excluded here so it
+// never counts toward the media list, never becomes the cover, and never
+// shows the "1 more" media-count badge for a video nobody can watch.
 const getProjectMedia = (p) => {
   const items = [];
   (p.screenshots || []).forEach((s) => {
     if (s?.url) items.push({ type: "image", src: s.url, caption: s.caption || "" });
   });
-  if (p.video?.url) items.push({ type: "video", src: p.video.url, caption: p.video.caption || "" });
+  if (p.video?.url && !isBlobUrl(p.video.url)) {
+    items.push({ type: "video", src: p.video.url, caption: p.video.caption || "" });
+  }
   return items;
 };
 
@@ -1727,7 +1752,16 @@ const Portfolio = ({ slugProp }) => {
                 navigates activeSection to "project-detail". Screenshots and the
                 demo video are shown as two separate, clearly labeled sections
                 instead of being merged into one mixed gallery grid, and the
-                description gets its own well-formatted card up top. */}
+                description gets its own well-formatted card up top.
+
+                FIX: the "Demo Video" section (and the media-count logic above)
+                now explicitly excludes "blob:" URLs via isBlobUrl(). A blob:
+                URL can never resolve outside the exact tab/session that created
+                it, so rendering it in a <video>/<iframe> always produced the
+                "can't connect to the server" error seen in both Chrome and
+                Firefox. Treating it as "no video" instead means the page simply
+                shows the Screenshots section (or the "nothing added yet"
+                message) until the admin re-uploads the video properly. */}
             {activeSection === "project-detail" && selectedProject && (
               <section className="relative scroll-mt-24 px-6 md:px-10 py-16 md:py-20 max-w-5xl mx-auto w-full overflow-hidden">
                 <AuroraBackground />
@@ -1803,8 +1837,9 @@ const Portfolio = ({ slugProp }) => {
                   </Reveal>
                 )}
 
-                {/* Demo Video — its own dedicated section, separate from screenshots */}
-                {selectedProject.video?.url && (
+                {/* Demo Video — its own dedicated section, separate from screenshots.
+                    Only rendered when video.url exists AND is not a stale blob: URL. */}
+                {selectedProject.video?.url && !isBlobUrl(selectedProject.video.url) && (
                   <Reveal delay={0.15} className="mb-10">
                     <div className="flex items-center gap-2 mb-4">
                       <PlayCircle className="w-5 h-5 text-primary" />
@@ -1857,9 +1892,10 @@ const Portfolio = ({ slugProp }) => {
                   </Reveal>
                 )}
 
-                {!selectedProject.video?.url && !(selectedProject.screenshots?.length > 0) && (
-                  <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
-                )}
+                {!(selectedProject.video?.url && !isBlobUrl(selectedProject.video.url)) &&
+                  !(selectedProject.screenshots?.length > 0) && (
+                    <p className="text-textMuted text-sm">No screenshots or demo video added for this project yet.</p>
+                  )}
               </section>
             )}
 
